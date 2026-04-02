@@ -1,0 +1,63 @@
+{
+  "name": "cortex",
+  "displayName": "Cortex",
+  "description": "Capture and organise editor selections in a sidebar.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cortex.capture",
+        "title": "Cortex: Capture Selection"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cortex-sidebar",
+          "title": "Cortex",
+          "icon": "media/cortex-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cortex-sidebar": [
+        {
+          "type": "webview",
+          "id": "cortex.sidebarView",
+          "name": "Cortex",
+          "icon": "media/cortex-icon.svg",
+          "contextualTitle": "Cortex"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "cortex.capture",
+        "key": "ctrl+shift+c",
+        "mac": "cmd+shift+c",
+        "when": "editorHasSelection"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.88.0",
+    "@types/node": "^20.x",
+    "@typescript-eslint/eslint-plugin": "^7.x",
+    "@typescript-eslint/parser": "^7.x",
+    "eslint": "^8.x",
+    "typescript": "^5.x"
+  }
+}
