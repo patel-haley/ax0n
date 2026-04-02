@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { CortexDatabase } from "./database";
 
 // ---------------------------------------------------------------------------
 // Sidebar webview provider
@@ -78,6 +79,13 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 // ---------------------------------------------------------------------------
 
 export function activate(context: vscode.ExtensionContext): void {
+  // VS Code creates globalStorageUri lazily — ensure the directory exists
+  const { promises: fs } = require("fs") as typeof import("fs");
+  fs.mkdir(context.globalStorageUri.fsPath, { recursive: true }).catch(() => {});
+
+  const db = new CortexDatabase(context.globalStorageUri.fsPath);
+  context.subscriptions.push({ dispose: () => db.close() });
+
   const provider = new CortexSidebarProvider(context.extensionUri);
 
   // Register the sidebar webview provider
@@ -112,6 +120,9 @@ export function activate(context: vscode.ExtensionContext): void {
         selection.start.line + 1
       }–${selection.end.line + 1}`;
 
+      // Persist to SQLite first so we have a stable id
+      const memory = db.saveMemory(text, editor.document.fileName);
+
       provider.addCapture(text, source);
 
       // Reveal the sidebar so the user sees the capture land
@@ -122,14 +133,14 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showInformationMessage(
         `Cortex: Captured ${text.split("\n").length} line(s) from ${
           editor.document.fileName.split("/").pop()
-        }`
+        } [${memory.id.slice(0, 8)}]`
       );
     })
   );
 }
 
 export function deactivate(): void {
-  // nothing to clean up beyond the disposables registered above
+  // disposables registered in activate() handle cleanup
 }
 
 // ---------------------------------------------------------------------------

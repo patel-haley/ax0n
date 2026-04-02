@@ -6,8 +6,12 @@
   "engines": {
     "vscode": "^1.88.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -53,11 +57,15 @@
     "lint": "eslint src --ext ts"
   },
   "devDependencies": {
-    "@types/vscode": "^1.88.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.x",
+    "@types/vscode": "^1.88.0",
     "@typescript-eslint/eslint-plugin": "^7.x",
     "@typescript-eslint/parser": "^7.x",
     "eslint": "^8.x",
     "typescript": "^5.x"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.8.0"
   }
 }
