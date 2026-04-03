@@ -1,9 +1,6 @@
 import * as vscode from "vscode";
 import { CortexDatabase } from "./database";
-
-// ---------------------------------------------------------------------------
-// Sidebar webview provider
-// ---------------------------------------------------------------------------
+import { Embedder } from "./embedder";
 
 class CortexSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "cortex.sidebarView";
@@ -26,7 +23,6 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._buildHtml(webviewView.webview);
 
-    // Handle messages sent from the webview back to the extension
     webviewView.webview.onDidReceiveMessage((message: { command: string }) => {
       if (message.command === "clear") {
         this._view?.webview.postMessage({ command: "clear" });
@@ -34,7 +30,6 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /** Push a captured snippet into the sidebar. */
   addCapture(text: string, source: string): void {
     this._view?.webview.postMessage({ command: "capture", text, source });
   }
@@ -45,7 +40,6 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
         vscode.Uri.joinPath(this._extensionUri, "media", file)
       );
 
-    // Content-Security-Policy: only allow scripts/styles from our own media dir
     const nonce = getNonce();
 
     return /* html */ `<!DOCTYPE html>
@@ -74,21 +68,28 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Extension entry points
-// ---------------------------------------------------------------------------
+export const out = vscode.window.createOutputChannel("Cortex");
 
 export function activate(context: vscode.ExtensionContext): void {
-  // VS Code creates globalStorageUri lazily — ensure the directory exists
-  const { promises: fs } = require("fs") as typeof import("fs");
-  fs.mkdir(context.globalStorageUri.fsPath, { recursive: true }).catch(() => {});
+  context.subscriptions.push(out);
+  out.show(true);
 
-  const db = new CortexDatabase(context.globalStorageUri.fsPath);
-  context.subscriptions.push({ dispose: () => db.close() });
+  const { mkdirSync } = require("fs") as typeof import("fs");
+  mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
+
+  let db: CortexDatabase;
+  try {
+    db = new CortexDatabase(context.globalStorageUri.fsPath);
+    context.subscriptions.push({ dispose: () => db.close() });
+  } catch (err) {
+    vscode.window.showErrorMessage(`Cortex: failed to open database — ${err}`);
+    return;
+  }
+
+  const embedder = new Embedder(context.globalStorageUri.fsPath);
 
   const provider = new CortexSidebarProvider(context.extensionUri);
 
-  // Register the sidebar webview provider
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       CortexSidebarProvider.viewId,
@@ -96,7 +97,6 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // Register the cortex.capture command
   context.subscriptions.push(
     vscode.commands.registerCommand("cortex.capture", () => {
       const editor = vscode.window.activeTextEditor;
@@ -120,15 +120,15 @@ export function activate(context: vscode.ExtensionContext): void {
         selection.start.line + 1
       }–${selection.end.line + 1}`;
 
-      // Persist to SQLite first so we have a stable id
       const memory = db.saveMemory(text, editor.document.fileName);
+
+      embedder.embed(text).then((vector) => {
+        db.saveVector(memory.id, vector);
+      });
 
       provider.addCapture(text, source);
 
-      // Reveal the sidebar so the user sees the capture land
-      vscode.commands.executeCommand(
-        "workbench.view.extension.cortex-sidebar"
-      );
+      vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
       vscode.window.showInformationMessage(
         `Cortex: Captured ${text.split("\n").length} line(s) from ${
@@ -137,15 +137,44 @@ export function activate(context: vscode.ExtensionContext): void {
       );
     })
   );
+
+  runEmbedderTests(embedder, db);
 }
 
-export function deactivate(): void {
-  // disposables registered in activate() handle cleanup
-}
+export function deactivate(): void {}
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+async function runEmbedderTests(
+  embedder: Embedder,
+  db: CortexDatabase
+): Promise<void> {
+  out.appendLine("starting embedder tests…");
+
+  try {
+    const v1 = await embedder.embed("hello world");
+
+    out.appendLine(`T2 output length: ${v1.length}${v1.length !== 384 ? " ← FAIL expected 384" : " ✓"}`);
+
+    const probe = db.saveMemory("__test__", "__test__");
+    db.saveVector(probe.id, v1);
+    const loaded = db.getMemoryWithVector(probe.id);
+    const rtLen = loaded?.vector?.length ?? 0;
+    out.appendLine(`T3 round-trip length: ${rtLen}${rtLen !== 384 ? " ← FAIL expected 384" : " ✓"}`);
+
+    const vA = await embedder.embed("I fixed the authentication bug");
+    const vB = await embedder.embed("resolved the login issue");
+    const t4ok = vA.length === 384 && vB.length === 384;
+    out.appendLine(`T4 sentence-A: ${vA.length}, sentence-B: ${vB.length}${t4ok ? " ✓" : " ← FAIL"}`);
+
+    await embedder.embed("first repeat call");
+    await embedder.embed("second repeat call");
+    await embedder.embed("third repeat call");
+    out.appendLine("T5 done — 'model loaded' should appear exactly once above ✓");
+
+    out.appendLine("all embedder tests complete");
+  } catch (err) {
+    out.appendLine(`embedder test error: ${err}`);
+  }
+}
 
 function getNonce(): string {
   const chars =

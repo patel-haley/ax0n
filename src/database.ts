@@ -2,10 +2,6 @@ import Database from "better-sqlite3";
 import { randomUUID } from "crypto";
 import * as path from "path";
 
-// ---------------------------------------------------------------------------
-// Row shape
-// ---------------------------------------------------------------------------
-
 export interface Memory {
   id: string;
   content: string;
@@ -17,9 +13,20 @@ export interface Memory {
   vector: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Database class
-// ---------------------------------------------------------------------------
+export interface MemoryWithVector extends Omit<Memory, "vector"> {
+  vector: Float32Array | null;
+}
+
+function serializeVector(v: Float32Array): string {
+  return JSON.stringify(Array.from(v));
+}
+
+function deserializeVector(s: string | null): Float32Array | null {
+  if (s === null) {
+    return null;
+  }
+  return new Float32Array(JSON.parse(s));
+}
 
 export class CortexDatabase {
   private db: Database.Database;
@@ -27,35 +34,24 @@ export class CortexDatabase {
   constructor(storagePath: string) {
     const dbPath = path.join(storagePath, "cortex.db");
     this.db = new Database(dbPath);
-
-    // WAL mode for better concurrent read performance
     this.db.pragma("journal_mode = WAL");
-
     this._migrate();
   }
-
-  // -------------------------------------------------------------------------
-  // Schema
-  // -------------------------------------------------------------------------
 
   private _migrate(): void {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS memories (
-        id           TEXT PRIMARY KEY,
-        content      TEXT,
-        file_path    TEXT,
-        timestamp    INTEGER,
-        access_count INTEGER DEFAULT 0,
+        id            TEXT PRIMARY KEY,
+        content       TEXT,
+        file_path     TEXT,
+        timestamp     INTEGER,
+        access_count  INTEGER DEFAULT 0,
         last_accessed INTEGER,
-        used         INTEGER DEFAULT 0,
-        vector       TEXT
+        used          INTEGER DEFAULT 0,
+        vector        TEXT
       );
     `);
   }
-
-  // -------------------------------------------------------------------------
-  // Write
-  // -------------------------------------------------------------------------
 
   saveMemory(content: string, filePath: string): Memory {
     const row: Memory = {
@@ -81,14 +77,28 @@ export class CortexDatabase {
     return row;
   }
 
-  // -------------------------------------------------------------------------
-  // Read
-  // -------------------------------------------------------------------------
+  saveVector(id: string, vector: Float32Array): void {
+    this.db
+      .prepare("UPDATE memories SET vector = ? WHERE id = ?")
+      .run(serializeVector(vector), id);
+  }
 
   getMemory(id: string): Memory | undefined {
     return this.db
       .prepare("SELECT * FROM memories WHERE id = ?")
       .get(id) as Memory | undefined;
+  }
+
+  getMemoryWithVector(id: string): MemoryWithVector | undefined {
+    const row = this.db
+      .prepare("SELECT * FROM memories WHERE id = ?")
+      .get(id) as Memory | undefined;
+
+    if (!row) {
+      return undefined;
+    }
+
+    return { ...row, vector: deserializeVector(row.vector) };
   }
 
   getAllMemories(): Memory[] {
@@ -97,9 +107,13 @@ export class CortexDatabase {
       .all() as Memory[];
   }
 
-  // -------------------------------------------------------------------------
-  // Lifecycle
-  // -------------------------------------------------------------------------
+  getAllMemoriesWithVectors(): MemoryWithVector[] {
+    const rows = this.db
+      .prepare("SELECT * FROM memories ORDER BY timestamp DESC")
+      .all() as Memory[];
+
+    return rows.map((row) => ({ ...row, vector: deserializeVector(row.vector) }));
+  }
 
   close(): void {
     this.db.close();
