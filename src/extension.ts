@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
+import { search } from "./search";
 
 class CortexSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "cortex.sidebarView";
@@ -135,6 +136,39 @@ export function activate(context: vscode.ExtensionContext): void {
           editor.document.fileName.split("/").pop()
         } [${memory.id.slice(0, 8)}]`
       );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.search", async () => {
+      const query = await vscode.window.showInputBox({
+        prompt: "Search your captured memories…",
+        placeHolder: "e.g. authentication bug fix",
+      });
+
+      if (!query) {
+        return;
+      }
+
+      const results = await search(query, db, embedder);
+
+      if (results.length === 0) {
+        vscode.window.showInformationMessage("Cortex: no memories found above threshold.");
+        return;
+      }
+
+      out.clear();
+      out.appendLine(`Search: "${query}"  (${results.length} result${results.length === 1 ? "" : "s"})\n`);
+
+      results.forEach((r, i) => {
+        const fileName = r.memory.file_path.split("/").pop();
+        const preview = r.memory.content.replace(/\s+/g, " ").slice(0, 120);
+        out.appendLine(`${i + 1}. [${r.score.toFixed(3)}] ${fileName}`);
+        out.appendLine(`   ${preview}`);
+        out.appendLine("");
+      });
+
+      out.show(true);
     })
   );
 

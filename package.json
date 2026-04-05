@@ -18,6 +18,10 @@
       {
         "command": "cortex.capture",
         "title": "Cortex: Capture Selection"
+      },
+      {
+        "command": "cortex.search",
+        "title": "Cortex: Search Memories"
       }
     ],
     "viewsContainers": {
@@ -63,6 +67,7 @@
     "@typescript-eslint/eslint-plugin": "^7.x",
     "@typescript-eslint/parser": "^7.x",
     "eslint": "^8.x",
+    "ts-node": "^10.9.2",
     "typescript": "^5.x"
   },
   "dependencies": {
