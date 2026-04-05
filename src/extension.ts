@@ -150,7 +150,8 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      const results = await search(query, db, embedder);
+      const currentFilePath = vscode.window.activeTextEditor?.document.fileName ?? "";
+      const results = await search(query, db, embedder, { currentFilePath });
 
       if (results.length === 0) {
         vscode.window.showInformationMessage("Cortex: no memories found above threshold.");
@@ -163,8 +164,10 @@ export function activate(context: vscode.ExtensionContext): void {
       results.forEach((r, i) => {
         const fileName = r.memory.file_path.split("/").pop();
         const preview = r.memory.content.replace(/\s+/g, " ").slice(0, 120);
-        out.appendLine(`${i + 1}. [${r.score.toFixed(3)}] ${fileName}`);
+        const { relevance, recency, frequency, proximity } = r.components;
+        out.appendLine(`${i + 1}. [${r.finalScore.toFixed(3)}] ${fileName}`);
         out.appendLine(`   ${preview}`);
+        out.appendLine(`   rel=${relevance.toFixed(2)} rec=${recency.toFixed(2)} freq=${frequency.toFixed(2)} prox=${proximity.toFixed(2)}`);
         out.appendLine("");
       });
 
