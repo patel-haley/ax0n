@@ -87,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
     return;
   }
 
-  const embedder = new Embedder(context.globalStorageUri.fsPath);
+  const embedder = new Embedder(context.globalStorageUri.fsPath, (msg) => out.appendLine(msg));
 
   const provider = new CortexSidebarProvider(context.extensionUri);
 

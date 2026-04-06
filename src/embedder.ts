@@ -7,9 +7,11 @@ const MODEL = "Xenova/all-MiniLM-L6-v2";
 export class Embedder {
   private _pipe: FeatureExtractionPipeline | null = null;
   private _loading: Promise<FeatureExtractionPipeline> | null = null;
+  private _log: (msg: string) => void;
 
-  constructor(cacheDir?: string) {
-    // Running inside VS Code's Node.js host — disable browser WASM paths
+  constructor(cacheDir?: string, log?: (msg: string) => void) {
+    this._log = log ?? ((msg) => console.log(msg));
+
     env.allowLocalModels = false;
     env.backends.onnx.wasm.numThreads = 1;
 
@@ -27,9 +29,7 @@ export class Embedder {
       this._loading = pipeline("feature-extraction", MODEL).then((p) => {
         this._pipe = p;
         this._loading = null;
-        // imported lazily to avoid a circular dep at module load time
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require("./extension").out?.appendLine("T1 model loaded ✓");
+        this._log("T1 model loaded ✓");
         return p;
       });
     }
