@@ -42,36 +42,76 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["query"],
       },
     },
+    {
+      name: "save_memory",
+      description:
+        "Save a piece of context or knowledge as a memory so it can be retrieved in future chats. Call this at the start of every new conversation with a short summary of what the user is working on.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "The text to save as a memory",
+          },
+          file_path: {
+            type: "string",
+            description: "Optional source identifier, e.g. 'cursor-chat' or a file path",
+          },
+        },
+        required: ["content"],
+      },
+    },
   ],
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  if (request.params.name !== "search_memories") {
-    throw new Error(`Unknown tool: ${request.params.name}`);
+  const { name, arguments: args } = request.params;
+
+  if (name === "search_memories") {
+    const { query } = args as { query: string };
+
+    if (!query?.trim()) {
+      throw new Error("query must be a non-empty string");
+    }
+
+    const results = await search(query, db, embedder, { topK: 5 });
+
+    const payload = results.map((r) => ({
+      content: r.memory.content,
+      file_path: r.memory.file_path,
+      score: parseFloat(r.finalScore.toFixed(4)),
+    }));
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+    };
   }
 
-  const query = (request.params.arguments as { query: string }).query;
+  if (name === "save_memory") {
+    const { content, file_path = "cursor-chat" } = args as {
+      content: string;
+      file_path?: string;
+    };
 
-  if (!query?.trim()) {
-    throw new Error("query must be a non-empty string");
+    if (!content?.trim()) {
+      throw new Error("content must be a non-empty string");
+    }
+
+    const memory = db.saveMemory(content, file_path);
+
+    embedder.embed(content).then((vector) => db.saveVector(memory.id, vector));
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ id: memory.id, saved: true }),
+        },
+      ],
+    };
   }
 
-  const results = await search(query, db, embedder, { topK: 5 });
-
-  const payload = results.map((r) => ({
-    content: r.memory.content,
-    file_path: r.memory.file_path,
-    score: parseFloat(r.finalScore.toFixed(4)),
-  }));
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(payload, null, 2),
-      },
-    ],
-  };
+  throw new Error(`Unknown tool: ${name}`);
 });
 
 async function main() {

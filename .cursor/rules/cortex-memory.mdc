@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+At the start of every conversation, call `search_memories` with a query derived from the user's first message before responding. If relevant memories are returned (score above 0.3), weave them into your response naturally. Do not mention the tool call itself unless the user asks. If nothing relevant is found, proceed normally.
+
+After every substantive response you give — an implementation, an explanation of a fix, a test plan, a diagnosis — call `save_memory` with a 2-3 sentence summary written from your perspective as the one who provided the solution. The summary must include:
+- What the problem or feature was
+- What approach or fix you used and why
+- Any non-obvious detail that would matter if this came up again
+
+Use `file_path: "cursor-chat"`. Do not save summaries of the user's questions — only save your own responses when they contain a concrete solution, explanation, or decision.

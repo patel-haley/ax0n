@@ -175,6 +175,41 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // Auto-capture the first 500 chars of a file when you switch to it
+  const recentlyAutoCaptured = new Set<string>();
+
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (!editor) {
+        return;
+      }
+
+      const filePath = editor.document.fileName;
+
+      // Skip untitled buffers, the output panel, and files already captured this session
+      if (
+        editor.document.isUntitled ||
+        editor.document.uri.scheme !== "file" ||
+        recentlyAutoCaptured.has(filePath)
+      ) {
+        return;
+      }
+
+      const text = editor.document.getText().slice(0, 500).trim();
+
+      if (!text) {
+        return;
+      }
+
+      recentlyAutoCaptured.add(filePath);
+
+      const memory = db.saveMemory(text, filePath);
+      embedder.embed(text).then((vector) => db.saveVector(memory.id, vector));
+
+      out.appendLine(`auto-captured ${editor.document.fileName.split("/").pop()} [${memory.id.slice(0, 8)}]`);
+    })
+  );
+
   runEmbedderTests(embedder, db);
 }
 
