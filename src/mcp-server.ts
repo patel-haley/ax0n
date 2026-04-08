@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -10,12 +11,30 @@ import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { search } from "./search";
 
-const DB_PATH =
-  process.env.CORTEX_DB_PATH ??
-  path.join(
-    os.homedir(),
-    "Library/Application Support/Cursor/User/globalStorage/haleypatel.cortex"
-  );
+const EXTENSION_ID = "cortexmem.cortex";
+
+const DB_PATH = (() => {
+  if (process.env.CORTEX_DB_PATH) {
+    return process.env.CORTEX_DB_PATH;
+  }
+
+  const appDirs: Record<string, string> = {
+    darwin: path.join(os.homedir(), "Library", "Application Support"),
+    linux: path.join(os.homedir(), ".config"),
+    win32: process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming"),
+  };
+
+  const appDir = appDirs[process.platform] ?? appDirs["linux"];
+
+  for (const app of ["Cursor", "Code"]) {
+    const candidate = path.join(appDir, app, "User", "globalStorage", EXTENSION_ID);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return path.join(appDir, "Cursor", "User", "globalStorage", EXTENSION_ID);
+})();
 
 const db = new CortexDatabase(DB_PATH);
 const embedder = new Embedder(DB_PATH);

@@ -1,5 +1,6 @@
 {
   "name": "cortex",
+  "publisher": "cortexai",
   "displayName": "Cortex",
   "description": "Capture and organise editor selections in a sidebar.",
   "version": "0.0.1",

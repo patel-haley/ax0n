@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as vscode from "vscode";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
@@ -73,10 +74,8 @@ export const out = vscode.window.createOutputChannel("Cortex");
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(out);
-  out.show(true);
 
-  const { mkdirSync } = require("fs") as typeof import("fs");
-  mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
+  fs.mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
 
   let db: CortexDatabase;
   try {
@@ -175,7 +174,6 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // Auto-capture the first 500 chars of a file when you switch to it
   const recentlyAutoCaptured = new Set<string>();
 
   context.subscriptions.push(
@@ -186,7 +184,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const filePath = editor.document.fileName;
 
-      // Skip untitled buffers, the output panel, and files already captured this session
       if (
         editor.document.isUntitled ||
         editor.document.uri.scheme !== "file" ||
@@ -209,44 +206,9 @@ export function activate(context: vscode.ExtensionContext): void {
       out.appendLine(`auto-captured ${editor.document.fileName.split("/").pop()} [${memory.id.slice(0, 8)}]`);
     })
   );
-
-  runEmbedderTests(embedder, db);
 }
 
 export function deactivate(): void {}
-
-async function runEmbedderTests(
-  embedder: Embedder,
-  db: CortexDatabase
-): Promise<void> {
-  out.appendLine("starting embedder tests…");
-
-  try {
-    const v1 = await embedder.embed("hello world");
-
-    out.appendLine(`T2 output length: ${v1.length}${v1.length !== 384 ? " ← FAIL expected 384" : " ✓"}`);
-
-    const probe = db.saveMemory("__test__", "__test__");
-    db.saveVector(probe.id, v1);
-    const loaded = db.getMemoryWithVector(probe.id);
-    const rtLen = loaded?.vector?.length ?? 0;
-    out.appendLine(`T3 round-trip length: ${rtLen}${rtLen !== 384 ? " ← FAIL expected 384" : " ✓"}`);
-
-    const vA = await embedder.embed("I fixed the authentication bug");
-    const vB = await embedder.embed("resolved the login issue");
-    const t4ok = vA.length === 384 && vB.length === 384;
-    out.appendLine(`T4 sentence-A: ${vA.length}, sentence-B: ${vB.length}${t4ok ? " ✓" : " ← FAIL"}`);
-
-    await embedder.embed("first repeat call");
-    await embedder.embed("second repeat call");
-    await embedder.embed("third repeat call");
-    out.appendLine("T5 done — 'model loaded' should appear exactly once above ✓");
-
-    out.appendLine("all embedder tests complete");
-  } catch (err) {
-    out.appendLine(`embedder test error: ${err}`);
-  }
-}
 
 function getNonce(): string {
   const chars =
