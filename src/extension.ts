@@ -1,5 +1,7 @@
 import * as fs from "fs";
+import * as path from "path";
 import * as vscode from "vscode";
+import { minimatch } from "minimatch";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { search } from "./search";
@@ -174,6 +176,20 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // .cortexignore support
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
+  const cortexIgnorePath = path.join(workspaceRoot, ".cortexignore");
+
+  let ignorePatterns: string[] = loadIgnorePatterns(cortexIgnorePath);
+
+  const ignoreWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(workspaceRoot, ".cortexignore")
+  );
+  ignoreWatcher.onDidChange(() => { ignorePatterns = loadIgnorePatterns(cortexIgnorePath); });
+  ignoreWatcher.onDidCreate(() => { ignorePatterns = loadIgnorePatterns(cortexIgnorePath); });
+  ignoreWatcher.onDidDelete(() => { ignorePatterns = []; });
+  context.subscriptions.push(ignoreWatcher);
+
   const recentlyAutoCaptured = new Set<string>();
 
   context.subscriptions.push(
@@ -189,6 +205,14 @@ export function activate(context: vscode.ExtensionContext): void {
         editor.document.uri.scheme !== "file" ||
         recentlyAutoCaptured.has(filePath)
       ) {
+        return;
+      }
+
+      const relative = workspaceRoot
+        ? path.relative(workspaceRoot, filePath)
+        : filePath;
+
+      if (ignorePatterns.some((p) => minimatch(relative, p, { dot: true }))) {
         return;
       }
 
@@ -209,6 +233,18 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {}
+
+function loadIgnorePatterns(filePath: string): string[] {
+  try {
+    return fs
+      .readFileSync(filePath, "utf8")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith("#"));
+  } catch {
+    return [];
+  }
+}
 
 function getNonce(): string {
   const chars =

@@ -1,0 +1,23 @@
+# Cortex will not auto-capture files matching these patterns.
+# Uses glob syntax (same as .gitignore).
+
+# Dependencies
+node_modules/**
+
+# Build output
+dist/**
+out/**
+
+# Environment and secrets
+.env
+.env.*
+
+# Lock files
+*.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+
