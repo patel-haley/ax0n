@@ -5,6 +5,7 @@ import { minimatch } from "minimatch";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { search } from "./search";
+import { cosine } from "./utils";
 
 class CortexSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "cortex.sidebarView";
@@ -74,6 +75,34 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
 export const out = vscode.window.createOutputChannel("Cortex");
 
+const DEDUP_THRESHOLD = 0.92;
+
+async function saveWithDedup(
+  text: string,
+  filePath: string,
+  db: CortexDatabase,
+  embedder: Embedder
+): Promise<{ id: string; deduplicated: boolean }> {
+  const vector = await embedder.embed(text);
+
+  const existing = db.getAllMemoriesWithVectors().filter((m) => m.vector !== null);
+
+  const duplicate = existing.find(
+    (m) => cosine(vector, m.vector as Float32Array) >= DEDUP_THRESHOLD
+  );
+
+  if (duplicate) {
+    db.updateMemory(duplicate.id, text);
+    db.saveVector(duplicate.id, vector);
+    out.appendLine(`deduplicated [${duplicate.id.slice(0, 8)}]`);
+    return { id: duplicate.id, deduplicated: true };
+  }
+
+  const memory = db.saveMemory(text, filePath);
+  db.saveVector(memory.id, vector);
+  return { id: memory.id, deduplicated: false };
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(out);
 
@@ -118,25 +147,20 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      const source = `${editor.document.fileName.split("/").pop()} · L${
+      const source = `${path.basename(editor.document.fileName)} · L${
         selection.start.line + 1
       }–${selection.end.line + 1}`;
 
-      const memory = db.saveMemory(text, editor.document.fileName);
-
-      embedder.embed(text).then((vector) => {
-        db.saveVector(memory.id, vector);
-      });
-
       provider.addCapture(text, source);
-
       vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
-      vscode.window.showInformationMessage(
-        `Cortex: Captured ${text.split("\n").length} line(s) from ${
-          editor.document.fileName.split("/").pop()
-        } [${memory.id.slice(0, 8)}]`
-      );
+      saveWithDedup(text, editor.document.fileName, db, embedder).then(({ id, deduplicated }) => {
+        vscode.window.showInformationMessage(
+          deduplicated
+            ? `Cortex: Updated existing memory [${id.slice(0, 8)}]`
+            : `Cortex: Captured ${text.split("\n").length} line(s) from ${path.basename(editor.document.fileName)} [${id.slice(0, 8)}]`
+        );
+      });
     })
   );
 
@@ -163,7 +187,7 @@ export function activate(context: vscode.ExtensionContext): void {
       out.appendLine(`Search: "${query}"  (${results.length} result${results.length === 1 ? "" : "s"})\n`);
 
       results.forEach((r, i) => {
-        const fileName = r.memory.file_path.split("/").pop();
+        const fileName = path.basename(r.memory.file_path);
         const preview = r.memory.content.replace(/\s+/g, " ").slice(0, 120);
         const { relevance, recency, frequency, proximity } = r.components;
         out.appendLine(`${i + 1}. [${r.finalScore.toFixed(3)}] ${fileName}`);
@@ -224,10 +248,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
       recentlyAutoCaptured.add(filePath);
 
-      const memory = db.saveMemory(text, filePath);
-      embedder.embed(text).then((vector) => db.saveVector(memory.id, vector));
-
-      out.appendLine(`auto-captured ${editor.document.fileName.split("/").pop()} [${memory.id.slice(0, 8)}]`);
+      saveWithDedup(text, filePath, db, embedder).then(({ id, deduplicated }) => {
+        out.appendLine(
+          deduplicated
+            ? `auto-capture deduplicated ${path.basename(filePath)} [${id.slice(0, 8)}]`
+            : `auto-captured ${path.basename(filePath)} [${id.slice(0, 8)}]`
+        );
+      });
     })
   );
 }

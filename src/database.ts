@@ -77,6 +77,12 @@ export class CortexDatabase {
     return row;
   }
 
+  updateMemory(id: string, content: string): void {
+    this.db
+      .prepare("UPDATE memories SET content = ?, timestamp = ? WHERE id = ?")
+      .run(content, Date.now(), id);
+  }
+
   saveVector(id: string, vector: Float32Array): void {
     this.db
       .prepare("UPDATE memories SET vector = ? WHERE id = ?")
