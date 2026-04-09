@@ -117,6 +117,11 @@ export function activate(context: vscode.ExtensionContext): void {
     return;
   }
 
+  const pruned = db.pruneStaleMemories();
+  if (pruned > 0) {
+    out.appendLine(`pruned ${pruned} stale memor${pruned === 1 ? "y" : "ies"} (0 accesses, older than 30 days)`);
+  }
+
   const embedder = new Embedder(context.globalStorageUri.fsPath, (msg) => out.appendLine(msg));
 
   const provider = new CortexSidebarProvider(context.extensionUri);

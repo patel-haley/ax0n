@@ -20,4 +20,5 @@ pnpm-lock.yaml
 
 # Logs
 *.log
+**/*.log
 
