@@ -52,7 +52,17 @@
         "mac": "cmd+shift+c",
         "when": "editorHasSelection"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Cortex",
+      "properties": {
+        "cortex.ollamaModel": {
+          "type": "string",
+          "default": "llama3",
+          "markdownDescription": "Ollama model used to summarize captures before embedding. Requires a running Ollama instance at `http://localhost:11434`. Set to an empty string to disable summarization."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

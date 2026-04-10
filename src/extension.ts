@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import { minimatch } from "minimatch";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
+import { OllamaSummarizer } from "./summarizer";
 import { search } from "./search";
 import { cosine } from "./utils";
 
@@ -124,6 +125,33 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const embedder = new Embedder(context.globalStorageUri.fsPath, (msg) => out.appendLine(msg));
 
+  const ollamaModel = vscode.workspace.getConfiguration("cortex").get<string>("ollamaModel", "llama3");
+  const summarizer = new OllamaSummarizer(ollamaModel);
+  let ollamaAvailable = false;
+
+  summarizer.isAvailable().then((available) => {
+    ollamaAvailable = available;
+    out.appendLine(
+      available
+        ? `Ollama available — summarizing captures with model: ${ollamaModel}`
+        : "Ollama not available — captures stored as raw text"
+    );
+  });
+
+  async function maybeSummarize(text: string): Promise<string> {
+    if (!ollamaAvailable) {
+      return text;
+    }
+    try {
+      const summary = await summarizer.summarize(text);
+      out.appendLine(`summarized → ${summary.slice(0, 100)}${summary.length > 100 ? "…" : ""}`);
+      return summary;
+    } catch (err) {
+      out.appendLine(`Ollama summarize failed, using raw text: ${err}`);
+      return text;
+    }
+  }
+
   const provider = new CortexSidebarProvider(context.extensionUri);
 
   context.subscriptions.push(
@@ -159,7 +187,9 @@ export function activate(context: vscode.ExtensionContext): void {
       provider.addCapture(text, source);
       vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
-      saveWithDedup(text, editor.document.fileName, db, embedder).then(({ id, deduplicated }) => {
+      maybeSummarize(text).then((textToSave) =>
+        saveWithDedup(textToSave, editor.document.fileName, db, embedder)
+      ).then(({ id, deduplicated }) => {
         vscode.window.showInformationMessage(
           deduplicated
             ? `Cortex: Updated existing memory [${id.slice(0, 8)}]`
@@ -253,7 +283,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
       recentlyAutoCaptured.add(filePath);
 
-      saveWithDedup(text, filePath, db, embedder).then(({ id, deduplicated }) => {
+      maybeSummarize(text).then((textToSave) =>
+        saveWithDedup(textToSave, filePath, db, embedder)
+      ).then(({ id, deduplicated }) => {
         out.appendLine(
           deduplicated
             ? `auto-capture deduplicated ${path.basename(filePath)} [${id.slice(0, 8)}]`
