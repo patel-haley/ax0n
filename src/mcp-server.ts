@@ -10,6 +10,7 @@ import {
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { search } from "./search";
+import { saveWithDedup } from "./memory";
 
 const EXTENSION_ID = "cortexmem.cortex";
 
@@ -116,15 +117,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       throw new Error("content must be a non-empty string");
     }
 
-    const memory = db.saveMemory(content, file_path);
-
-    embedder.embed(content).then((vector) => db.saveVector(memory.id, vector));
+    const { id } = await saveWithDedup(content, file_path, db, embedder);
 
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({ id: memory.id, saved: true }),
+          text: JSON.stringify({ id, saved: true }),
         },
       ],
     };

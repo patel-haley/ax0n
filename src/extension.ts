@@ -6,7 +6,7 @@ import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { OllamaSummarizer } from "./summarizer";
 import { search } from "./search";
-import { cosine } from "./utils";
+import { saveWithDedup } from "./memory";
 
 class CortexSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "cortex.sidebarView";
@@ -76,33 +76,6 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
 export const out = vscode.window.createOutputChannel("Cortex");
 
-const DEDUP_THRESHOLD = 0.92;
-
-async function saveWithDedup(
-  text: string,
-  filePath: string,
-  db: CortexDatabase,
-  embedder: Embedder
-): Promise<{ id: string; deduplicated: boolean }> {
-  const vector = await embedder.embed(text);
-
-  const existing = db.getAllMemoriesWithVectors().filter((m) => m.vector !== null);
-
-  const duplicate = existing.find(
-    (m) => cosine(vector, m.vector as Float32Array) >= DEDUP_THRESHOLD
-  );
-
-  if (duplicate) {
-    db.updateMemory(duplicate.id, text);
-    db.saveVector(duplicate.id, vector);
-    out.appendLine(`deduplicated [${duplicate.id.slice(0, 8)}]`);
-    return { id: duplicate.id, deduplicated: true };
-  }
-
-  const memory = db.saveMemory(text, filePath);
-  db.saveVector(memory.id, vector);
-  return { id: memory.id, deduplicated: false };
-}
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(out);
@@ -188,7 +161,7 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
       maybeSummarize(text).then((textToSave) =>
-        saveWithDedup(textToSave, editor.document.fileName, db, embedder)
+        saveWithDedup(textToSave, editor.document.fileName, db, embedder, (msg) => out.appendLine(msg))
       ).then(({ id, deduplicated }) => {
         vscode.window.showInformationMessage(
           deduplicated
@@ -284,7 +257,7 @@ export function activate(context: vscode.ExtensionContext): void {
       recentlyAutoCaptured.add(filePath);
 
       maybeSummarize(text).then((textToSave) =>
-        saveWithDedup(textToSave, filePath, db, embedder)
+        saveWithDedup(textToSave, filePath, db, embedder, (msg) => out.appendLine(msg))
       ).then(({ id, deduplicated }) => {
         out.appendLine(
           deduplicated
