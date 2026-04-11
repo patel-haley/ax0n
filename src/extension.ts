@@ -76,6 +76,162 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
 export const out = vscode.window.createOutputChannel("Cortex");
 
+class SetupPanel {
+  private static _current: SetupPanel | undefined;
+
+  private readonly _panel: vscode.WebviewPanel;
+  private readonly _disposables: vscode.Disposable[] = [];
+
+  static show(context: vscode.ExtensionContext): void {
+    if (SetupPanel._current) {
+      SetupPanel._current._panel.reveal(vscode.ViewColumn.One);
+      return;
+    }
+    new SetupPanel(context);
+  }
+
+  private constructor(context: vscode.ExtensionContext) {
+    this._panel = vscode.window.createWebviewPanel(
+      "cortex.setup",
+      "Cortex — Finish Setup",
+      vscode.ViewColumn.One,
+      { enableScripts: true, retainContextWhenHidden: true }
+    );
+
+    SetupPanel._current = this;
+    this._panel.webview.html = SetupPanel._buildHtml(this._panel.webview);
+
+    this._panel.webview.onDidReceiveMessage(
+      async (message: { command: string }) => {
+        if (message.command === "copyMcpConfig") {
+          await vscode.commands.executeCommand("cortex.copyMcpConfig");
+          this._panel.webview.postMessage({ command: "configCopied" });
+        }
+        if (message.command === "done") {
+          await context.globalState.update("cortex.setupComplete", true);
+          this._panel.dispose();
+        }
+      },
+      null,
+      this._disposables
+    );
+
+    this._panel.onDidDispose(() => this._dispose(), null, this._disposables);
+  }
+
+  private _dispose(): void {
+    SetupPanel._current = undefined;
+    while (this._disposables.length) {
+      this._disposables.pop()?.dispose();
+    }
+  }
+
+  private static _buildHtml(webview: vscode.Webview): string {
+    const nonce = getNonce();
+    const csp = webview.cspSource;
+
+    return /* html */ `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none';
+                 style-src ${csp} 'unsafe-inline';
+                 script-src 'nonce-${nonce}';" />
+  <title>Cortex Setup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      color: var(--vscode-foreground);
+      background: var(--vscode-editor-background);
+      padding: 48px 40px;
+      max-width: 560px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.35em; margin: 0 0 14px; font-weight: 600; }
+    p  { margin: 0 0 28px; color: var(--vscode-descriptionForeground); }
+    code {
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 0.9em;
+      background: var(--vscode-textCodeBlock-background);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+    button {
+      display: inline-block;
+      padding: 7px 16px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: var(--vscode-font-size);
+      font-family: var(--vscode-font-family);
+    }
+    #copy-btn {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+    }
+    #copy-btn:hover { background: var(--vscode-button-hoverBackground); }
+    #follow-up {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--vscode-activityBarBadge-background, #007acc);
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: 0 3px 3px 0;
+      font-size: 0.9em;
+    }
+    #done-btn {
+      margin-top: 32px;
+      background: transparent;
+      color: var(--vscode-foreground);
+      border: 1px solid color-mix(in srgb, var(--vscode-foreground) 30%, transparent);
+      opacity: 0.75;
+    }
+    #done-btn:hover { opacity: 1; }
+  </style>
+</head>
+<body>
+  <h1>One step to finish setup</h1>
+  <p>
+    Cortex needs to be registered as an MCP server in Cursor so it can inject
+    context into your AI chats automatically. Copy the config snippet below,
+    then paste it into <code>~/.cursor/mcp.json</code>.
+  </p>
+
+  <button id="copy-btn">Copy Cursor MCP Config</button>
+
+  <div id="follow-up">
+    ✓ Copied. Paste into <strong>~/.cursor/mcp.json</strong> and restart Cursor.
+  </div>
+
+  <br />
+  <button id="done-btn">Done</button>
+
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+
+    document.getElementById('copy-btn').addEventListener('click', () => {
+      vscode.postMessage({ command: 'copyMcpConfig' });
+    });
+
+    document.getElementById('done-btn').addEventListener('click', () => {
+      vscode.postMessage({ command: 'done' });
+    });
+
+    window.addEventListener('message', ({ data }) => {
+      if (data.command === 'configCopied') {
+        document.getElementById('follow-up').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>`;
+  }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(out);
@@ -207,6 +363,45 @@ export function activate(context: vscode.ExtensionContext): void {
       out.show(true);
     })
   );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.copyMcpConfig", async () => {
+      const serverPath = vscode.Uri.joinPath(context.extensionUri, "out", "mcp-server.js").fsPath;
+
+      const config = {
+        mcpServers: {
+          cortex: { command: "node", args: [serverPath] },
+        },
+      };
+
+      const snippet = JSON.stringify(config, null, 2);
+
+      await vscode.env.clipboard.writeText(snippet);
+      out.appendLine(`MCP server path: ${serverPath}`);
+
+      const choice = await vscode.window.showInformationMessage(
+        "Cortex: MCP config copied to clipboard.",
+        "Copied — how do I use this?",
+        "Dismiss"
+      );
+
+      if (choice === "Copied — how do I use this?") {
+        await vscode.env.openExternal(
+          vscode.Uri.parse("https://github.com/patel-haley/cortex#setup")
+        );
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.showSetup", () => {
+      SetupPanel.show(context);
+    })
+  );
+
+  if (!context.globalState.get<boolean>("cortex.setupComplete")) {
+    SetupPanel.show(context);
+  }
 
   // .cortexignore support
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
