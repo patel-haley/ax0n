@@ -12,7 +12,15 @@ import { Embedder } from "./embedder";
 import { search } from "./search";
 import { saveWithDedup } from "./memory";
 
-const EXTENSION_ID = "cortexmem.cortex";
+const EXTENSION_ID = "patel-haley.cortex";
+
+const NATIVE_BINDING = (() => {
+  // The better-sqlite3 binary in node_modules may be compiled for Cursor's
+  // Electron runtime. Use a Node-specific copy stored in native/node/ when
+  // running as a plain Node MCP server process.
+  const nodeBinary = path.join(__dirname, "..", "native", "node", "better_sqlite3.node");
+  return fs.existsSync(nodeBinary) ? nodeBinary : undefined;
+})();
 
 const DB_PATH = (() => {
   if (process.env.CORTEX_DB_PATH) {
@@ -37,8 +45,10 @@ const DB_PATH = (() => {
   return path.join(appDir, "Cursor", "User", "globalStorage", EXTENSION_ID);
 })();
 
-const db = new CortexDatabase(DB_PATH);
-const embedder = new Embedder(DB_PATH);
+const db = new CortexDatabase(DB_PATH, NATIVE_BINDING);
+// MCP uses stdout for JSON-RPC — all logging must go to stderr only
+const log = (msg: string) => process.stderr.write(`[cortex] ${msg}\n`);
+const embedder = new Embedder(DB_PATH, log);
 
 const server = new Server(
   { name: "cortex", version: "0.0.1" },

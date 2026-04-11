@@ -82,6 +82,7 @@
     "mcp:rebuild": "npm rebuild better-sqlite3"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.x",
     "@types/vscode": "^1.88.0",

@@ -4,4 +4,15 @@ src/**
 .gitignore
 tsconfig.json
 **/*.map
-node_modules/**
+node_modules/.bin/**
+node_modules/@typescript-eslint/**
+node_modules/eslint/**
+node_modules/typescript/**
+node_modules/ts-node/**
+node_modules/@electron/rebuild/**
+node_modules/@mapbox/**
+node_modules/prebuild-install/**
+node_modules/onnxruntime-node/bin/napi-v3/linux/**
+node_modules/onnxruntime-node/bin/napi-v3/win32/**
+node_modules/better-sqlite3/build/deps/**
+node_modules/better-sqlite3/deps/**

@@ -10,7 +10,7 @@ export class Embedder {
   private _log: (msg: string) => void;
 
   constructor(cacheDir?: string, log?: (msg: string) => void) {
-    this._log = log ?? ((msg) => console.log(msg));
+    this._log = log ?? ((msg) => process.stderr.write(`[cortex] ${msg}\n`));
 
     env.allowLocalModels = false;
     env.backends.onnx.wasm.numThreads = 1;

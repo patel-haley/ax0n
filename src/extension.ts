@@ -31,13 +31,21 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage((message: { command: string }) => {
       if (message.command === "clear") {
-        this._view?.webview.postMessage({ command: "clear" });
+        try {
+          this._view?.webview.postMessage({ command: "clear" });
+        } catch {
+          this._view = undefined;
+        }
       }
     });
   }
 
   addCapture(text: string, source: string): void {
-    this._view?.webview.postMessage({ command: "capture", text, source });
+    try {
+      this._view?.webview.postMessage({ command: "capture", text, source });
+    } catch {
+      this._view = undefined;
+    }
   }
 
   private _buildHtml(webview: vscode.Webview): string {

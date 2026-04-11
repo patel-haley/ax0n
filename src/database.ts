@@ -31,9 +31,11 @@ function deserializeVector(s: string | null): Float32Array | null {
 export class CortexDatabase {
   private db: Database.Database;
 
-  constructor(storagePath: string) {
+  constructor(storagePath: string, nativeBinding?: string) {
     const dbPath = path.join(storagePath, "cortex.db");
-    this.db = new Database(dbPath);
+    this.db = nativeBinding
+      ? new Database(dbPath, { nativeBinding } as Database.Options)
+      : new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this._migrate();
   }
