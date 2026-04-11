@@ -1,7 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { minimatch } from "minimatch";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { OllamaSummarizer } from "./summarizer";
@@ -411,65 +410,6 @@ export function activate(context: vscode.ExtensionContext): void {
     SetupPanel.show(context);
   }
 
-  // .cortexignore support
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? "";
-  const cortexIgnorePath = path.join(workspaceRoot, ".cortexignore");
-
-  let ignorePatterns: string[] = loadIgnorePatterns(cortexIgnorePath);
-
-  const ignoreWatcher = vscode.workspace.createFileSystemWatcher(
-    new vscode.RelativePattern(workspaceRoot, ".cortexignore")
-  );
-  ignoreWatcher.onDidChange(() => { ignorePatterns = loadIgnorePatterns(cortexIgnorePath); });
-  ignoreWatcher.onDidCreate(() => { ignorePatterns = loadIgnorePatterns(cortexIgnorePath); });
-  ignoreWatcher.onDidDelete(() => { ignorePatterns = []; });
-  context.subscriptions.push(ignoreWatcher);
-
-  const recentlyAutoCaptured = new Set<string>();
-
-  context.subscriptions.push(
-    vscode.window.onDidChangeActiveTextEditor((editor) => {
-      if (!editor) {
-        return;
-      }
-
-      const filePath = editor.document.fileName;
-
-      if (
-        editor.document.isUntitled ||
-        editor.document.uri.scheme !== "file" ||
-        recentlyAutoCaptured.has(filePath)
-      ) {
-        return;
-      }
-
-      const relative = workspaceRoot
-        ? path.relative(workspaceRoot, filePath)
-        : filePath;
-
-      if (ignorePatterns.some((p) => minimatch(relative, p, { dot: true }))) {
-        return;
-      }
-
-      const text = editor.document.getText().slice(0, 500).trim();
-
-      if (!text) {
-        return;
-      }
-
-      recentlyAutoCaptured.add(filePath);
-
-      maybeSummarize(text).then((textToSave) =>
-        saveWithDedup(textToSave, filePath, db, embedder, (msg) => out.appendLine(msg))
-      ).then(({ id, deduplicated }) => {
-        out.appendLine(
-          deduplicated
-            ? `auto-capture deduplicated ${path.basename(filePath)} [${id.slice(0, 8)}]`
-            : `auto-captured ${path.basename(filePath)} [${id.slice(0, 8)}]`
-        );
-      });
-    })
-  );
 }
 
 export function deactivate(): void {}
