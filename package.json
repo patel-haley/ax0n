@@ -77,6 +77,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile",
+    "test": "node --test",
     "lint": "eslint src --ext ts",
     "mcp": "node out/mcp-server.js",
     "mcp:rebuild": "npm rebuild better-sqlite3"

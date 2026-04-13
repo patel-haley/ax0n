@@ -75,7 +75,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "save_memory",
       description:
-        "Save a piece of context or knowledge as a memory so it can be retrieved in future chats. Call this at the start of every new conversation with a short summary of what the user is working on.",
+        "Save a piece of context or knowledge as a memory so it can be retrieved in future chats. Call this after substantive work with a short summary of what was done and why.",
       inputSchema: {
         type: "object",
         properties: {

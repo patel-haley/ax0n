@@ -261,16 +261,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const embedder = new Embedder(context.globalStorageUri.fsPath, (msg) => out.appendLine(msg));
 
-  const ollamaModel = vscode.workspace.getConfiguration("cortex").get<string>("ollamaModel", "llama3");
+  const ollamaModel = vscode.workspace.getConfiguration("cortex").get<string>("ollamaModel", "llama3").trim();
   const summarizer = new OllamaSummarizer(ollamaModel);
   let ollamaAvailable = false;
 
   summarizer.isAvailable().then((available) => {
     ollamaAvailable = available;
     out.appendLine(
-      available
+      !ollamaModel
+        ? "Ollama summarization disabled — captures stored as raw text"
+        : available
         ? `Ollama available — summarizing captures with model: ${ollamaModel}`
-        : "Ollama not available — captures stored as raw text"
+        : `Ollama model "${ollamaModel}" not available — captures stored as raw text`
     );
   });
 
@@ -323,7 +325,7 @@ export function activate(context: vscode.ExtensionContext): void {
       provider.addCapture(text, source);
       vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
-      maybeSummarize(text).then((textToSave) =>
+      void maybeSummarize(text).then((textToSave) =>
         saveWithDedup(textToSave, editor.document.fileName, db, embedder, (msg) => out.appendLine(msg))
       ).then(({ id, deduplicated }) => {
         vscode.window.showInformationMessage(
@@ -331,6 +333,9 @@ export function activate(context: vscode.ExtensionContext): void {
             ? `Cortex: Updated existing memory [${id.slice(0, 8)}]`
             : `Cortex: Captured ${text.split("\n").length} line(s) from ${path.basename(editor.document.fileName)} [${id.slice(0, 8)}]`
         );
+      }).catch((err) => {
+        out.appendLine(`capture failed: ${err}`);
+        vscode.window.showErrorMessage(`Cortex: capture failed — ${err}`);
       });
     })
   );
@@ -413,18 +418,6 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {}
-
-function loadIgnorePatterns(filePath: string): string[] {
-  try {
-    return fs
-      .readFileSync(filePath, "utf8")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l && !l.startsWith("#"));
-  } catch {
-    return [];
-  }
-}
 
 function getNonce(): string {
   const chars =

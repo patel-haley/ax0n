@@ -7,11 +7,15 @@ export class OllamaSummarizer {
   private readonly baseUrl: string;
 
   constructor(model = "llama3", baseUrl = "http://localhost:11434") {
-    this.model = model;
+    this.model = model.trim();
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
   async summarize(text: string): Promise<string> {
+    if (!this.model) {
+      throw new Error("Ollama summarization is disabled");
+    }
+
     const response = await fetch(`${this.baseUrl}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -27,11 +31,27 @@ export class OllamaSummarizer {
   }
 
   async isAvailable(): Promise<boolean> {
+    if (!this.model) {
+      return false;
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`, {
         signal: AbortSignal.timeout(3000),
       });
-      return response.ok;
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = (await response.json()) as { models?: { name?: string }[] };
+      return (
+        data.models?.some(
+          (model) =>
+            model.name === this.model ||
+            model.name?.startsWith(`${this.model}:`)
+        ) ?? false
+      );
     } catch {
       return false;
     }

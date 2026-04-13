@@ -91,6 +91,25 @@ export class CortexDatabase {
       .run(serializeVector(vector), id);
   }
 
+  recordAccess(ids: string[]): void {
+    if (ids.length === 0) {
+      return;
+    }
+
+    const now = Date.now();
+    const update = this.db.prepare(
+      "UPDATE memories SET access_count = access_count + 1, last_accessed = ?, used = 1 WHERE id = ?"
+    );
+
+    const transaction = this.db.transaction((memoryIds: string[]) => {
+      for (const id of memoryIds) {
+        update.run(now, id);
+      }
+    });
+
+    transaction(ids);
+  }
+
   getMemory(id: string): Memory | undefined {
     return this.db
       .prepare("SELECT * FROM memories WHERE id = ?")

@@ -32,7 +32,9 @@ export function scoreResult(
     maxAccessCount > 0 ? result.memory.access_count / maxAccessCount : 0;
 
   let proximity = 0;
-  if (result.memory.file_path === currentFilePath) {
+  if (!currentFilePath) {
+    proximity = 0;
+  } else if (result.memory.file_path === currentFilePath) {
     proximity = 1.0;
   } else if (
     path.extname(result.memory.file_path) === path.extname(currentFilePath)
@@ -76,7 +78,11 @@ export async function search(
       return { ...r, finalScore, components };
     });
 
-  return results
+  const ranked = results
     .sort((a, b) => b.finalScore - a.finalScore)
     .slice(0, topK);
+
+  db.recordAccess(ranked.map((r) => r.memory.id));
+
+  return ranked;
 }
