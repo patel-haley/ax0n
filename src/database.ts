@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { randomUUID } from "crypto";
+import * as fs from "fs";
 import * as path from "path";
 
 export interface Memory {
@@ -40,6 +41,7 @@ export class CortexDatabase {
   private db: Database.Database;
 
   constructor(storagePath: string, nativeBinding?: string) {
+    fs.mkdirSync(storagePath, { recursive: true });
     const dbPath = path.join(storagePath, "cortex.db");
     this.db = nativeBinding
       ? new Database(dbPath, { nativeBinding } as Database.Options)
@@ -89,10 +91,19 @@ export class CortexDatabase {
     return row;
   }
 
-  updateMemory(id: string, content: string): void {
+  updateMemory(id: string, content: string, filePath?: string): void {
+    if (filePath === undefined) {
+      this.db
+        .prepare("UPDATE memories SET content = ?, timestamp = ? WHERE id = ?")
+        .run(content, Date.now(), id);
+      return;
+    }
+
     this.db
-      .prepare("UPDATE memories SET content = ?, timestamp = ? WHERE id = ?")
-      .run(content, Date.now(), id);
+      .prepare(
+        "UPDATE memories SET content = ?, file_path = ?, timestamp = ? WHERE id = ?"
+      )
+      .run(content, filePath, Date.now(), id);
   }
 
   saveVector(id: string, vector: Float32Array): void {

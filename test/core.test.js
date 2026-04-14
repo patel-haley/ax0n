@@ -81,9 +81,23 @@ test("saveWithDedup updates an existing close match instead of inserting", async
     assert.equal(second.deduplicated, true);
     assert.equal(memories.length, 1);
     assert.equal(memories[0].content, "updated content");
+    assert.equal(memories[0].file_path, "/repo/b.ts");
   } finally {
     db.close();
     cleanup();
+  }
+});
+
+test("CortexDatabase creates the storage directory if needed", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "cortex-parent-"));
+  const dir = path.join(parent, "nested", "storage");
+  const db = new CortexDatabase(dir, nativeBinding);
+
+  try {
+    assert.equal(fs.existsSync(path.join(dir, "cortex.db")), true);
+  } finally {
+    db.close();
+    fs.rmSync(parent, { recursive: true, force: true });
   }
 });
 
@@ -215,7 +229,11 @@ test(
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [path.join(__dirname, "..", "out", "mcp-server.js")],
-      env: { ...process.env, CORTEX_DB_PATH: dbPath },
+      env: {
+        ...process.env,
+        CORTEX_DB_PATH: dbPath,
+        CORTEX_TEST_EMBEDDER: "deterministic",
+      },
     });
     const client = new Client(
       { name: "cortex-test", version: "0.0.0" },

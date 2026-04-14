@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as childProcess from "child_process";
 import * as vscode from "vscode";
 import { CortexDatabase } from "./database";
 import { Embedder } from "./embedder";
@@ -32,7 +33,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this._buildHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(
-      (message: { command: string; id?: string }) => {
+      async (message: { command: string; id?: string }) => {
         // Webview signals it has loaded and its message listener is live.
         if (message.command === "ready") {
           this._sendMemories("init");
@@ -49,6 +50,22 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
         }
 
         if (message.command === "clearAll") {
+          const count = this._db.getMemoryListMeta().count;
+          if (count === 0) {
+            this._view?.webview.postMessage({ command: "cleared" });
+            return;
+          }
+
+          const confirmed = await vscode.window.showWarningMessage(
+            `Permanently delete all ${count} memories? This cannot be undone.`,
+            { modal: true },
+            "Delete All"
+          );
+
+          if (confirmed !== "Delete All") {
+            return;
+          }
+
           this._db.clearAllMemories();
           try {
             this._view?.webview.postMessage({ command: "cleared" });
@@ -551,10 +568,11 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("cortex.copyMcpConfig", async () => {
       const serverPath = vscode.Uri.joinPath(context.extensionUri, "out", "mcp-server.js").fsPath;
+      const nodeCommand = await resolveNodeCommand();
 
       const config = {
         mcpServers: {
-          cortex: { command: "node", args: [serverPath] },
+          cortex: { command: nodeCommand, args: [serverPath] },
         },
       };
 
@@ -562,9 +580,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
       await vscode.env.clipboard.writeText(snippet);
       out.appendLine(`MCP server path: ${serverPath}`);
+      out.appendLine(`Node command: ${nodeCommand}`);
 
       const choice = await vscode.window.showInformationMessage(
-        "Cortex: MCP config copied to clipboard.",
+        nodeCommand === "node"
+          ? "Cortex: MCP config copied. If Cursor cannot start it, replace node with the full path from `which node`."
+          : "Cortex: MCP config copied to clipboard.",
         "Copied — how do I use this?",
         "Dismiss"
       );
@@ -597,4 +618,37 @@ function getNonce(): string {
   return Array.from({ length: 32 }, () =>
     chars.charAt(Math.floor(Math.random() * chars.length))
   ).join("");
+}
+
+async function resolveNodeCommand(): Promise<string> {
+  const override = process.env.CORTEX_NODE_PATH?.trim();
+  if (override) {
+    return override;
+  }
+
+  if (path.basename(process.execPath).toLowerCase().startsWith("node")) {
+    return process.execPath;
+  }
+
+  const fromPath = await findExecutable("node");
+  return fromPath ?? "node";
+}
+
+function findExecutable(name: string): Promise<string | undefined> {
+  const command = process.platform === "win32" ? "where" : "which";
+
+  return new Promise((resolve) => {
+    childProcess.execFile(command, [name], { timeout: 2000 }, (err, stdout) => {
+      if (err) {
+        resolve(undefined);
+        return;
+      }
+
+      const match = stdout
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find(Boolean);
+      resolve(match);
+    });
+  });
 }

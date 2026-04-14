@@ -4,7 +4,11 @@ type FeatureExtractionPipeline = Awaited<ReturnType<typeof pipeline>>;
 
 const MODEL = "Xenova/all-MiniLM-L6-v2";
 
-export class Embedder {
+export interface TextEmbedder {
+  embed(text: string): Promise<Float32Array>;
+}
+
+export class Embedder implements TextEmbedder {
   private _pipe: FeatureExtractionPipeline | null = null;
   private _loading: Promise<FeatureExtractionPipeline> | null = null;
   private _log: (msg: string) => void;

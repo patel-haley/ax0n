@@ -1,5 +1,5 @@
 import { CortexDatabase } from "./database";
-import { Embedder } from "./embedder";
+import { TextEmbedder } from "./embedder";
 import { cosine } from "./utils";
 
 export const DEDUP_THRESHOLD = 0.92;
@@ -8,7 +8,7 @@ export async function saveWithDedup(
   text: string,
   filePath: string,
   db: CortexDatabase,
-  embedder: Embedder,
+  embedder: TextEmbedder,
   log?: (msg: string) => void
 ): Promise<{ id: string; deduplicated: boolean }> {
   const vector = await embedder.embed(text);
@@ -20,7 +20,7 @@ export async function saveWithDedup(
   );
 
   if (duplicate) {
-    db.updateMemory(duplicate.id, text);
+    db.updateMemory(duplicate.id, text, filePath);
     db.saveVector(duplicate.id, vector);
     log?.(`deduplicated [${duplicate.id.slice(0, 8)}]`);
     return { id: duplicate.id, deduplicated: true };

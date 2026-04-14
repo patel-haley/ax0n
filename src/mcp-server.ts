@@ -8,7 +8,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { CortexDatabase } from "./database";
-import { Embedder } from "./embedder";
+import { Embedder, TextEmbedder } from "./embedder";
 import { search } from "./search";
 import { saveWithDedup } from "./memory";
 
@@ -48,7 +48,7 @@ const DB_PATH = (() => {
 const db = new CortexDatabase(DB_PATH, NATIVE_BINDING);
 // MCP uses stdout for JSON-RPC — all logging must go to stderr only
 const log = (msg: string) => process.stderr.write(`[cortex] ${msg}\n`);
-const embedder = new Embedder(DB_PATH, log);
+const embedder = createEmbedder();
 
 const server = new Server(
   { name: "cortex", version: "0.0.1" },
@@ -141,6 +141,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   throw new Error(`Unknown tool: ${name}`);
 });
+
+function createEmbedder(): TextEmbedder {
+  if (process.env.CORTEX_TEST_EMBEDDER === "deterministic") {
+    return { embed: async (text: string) => deterministicVector(text) };
+  }
+
+  return new Embedder(DB_PATH, log);
+}
+
+function deterministicVector(text: string): Float32Array {
+  const vector = new Float32Array(16);
+
+  for (let i = 0; i < text.length; i++) {
+    const slot = i % vector.length;
+    vector[slot] += (text.charCodeAt(i) % 31) / 31;
+  }
+
+  let magnitude = 0;
+  for (const value of vector) {
+    magnitude += value * value;
+  }
+
+  if (magnitude === 0) {
+    vector[0] = 1;
+    return vector;
+  }
+
+  const scale = Math.sqrt(magnitude);
+  for (let i = 0; i < vector.length; i++) {
+    vector[i] /= scale;
+  }
+
+  return vector;
+}
 
 async function main() {
   const transport = new StdioServerTransport();

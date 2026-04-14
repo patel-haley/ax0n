@@ -8,7 +8,7 @@ It runs silently in the background, captures what you work on, and automatically
 
 ## How it works
 
-**Manual capture:** Select any text from a file and press `Cmd+Shift+C` to save it as a memory. Cortex only captures what you explicitly tell it to.
+**Manual capture:** Select any text from a file and press `Cmd+Shift+C` to save it as a memory. All memories appear in the Cortex sidebar in your activity bar.
 
 **Local embeddings:** Each capture is embedded using `all-MiniLM-L6-v2` (via `@xenova/transformers`) and stored in a local SQLite database. Nothing leaves your machine.
 
@@ -16,7 +16,7 @@ It runs silently in the background, captures what you work on, and automatically
 
 **Automatic context injection:** The repo ships with rules that tell the AI what to do automatically. No prompt engineering required on your end.
 
-At the start of every conversation, the AI calls `search_memories` based on what you ask and anything relevant comes back as context before it responds. After every substantive response (a fix, implementation, diagnosis), it calls save_memory with a 2–3 sentence summary of what it did and why. Over time, context accumulates across sessions.
+At the start of every conversation, the AI calls `search_memories` based on what you ask and anything relevant comes back as context before it responds. After every substantive response (a fix, implementation, diagnosis), it calls `save_memory` with a 2–3 sentence summary of what it did and why. Over time, context accumulates across sessions.
 
 Cortex works in both Cursor (via `.cursor/rules/cortex-memory.mdc`) and Codex (via `AGENTS.md`). Both files ship with the repo and are already active when you clone it.
 
@@ -75,6 +75,21 @@ To use a different model, set `cortex.ollamaModel` in VS Code settings (default:
 
 - Manual selections via `Cmd+Shift+C` or **Cortex: Capture Selection**
 - AI chat summaries written by the MCP `save_memory` tool after substantive responses
+
+---
+
+## Managing memories
+
+The **Cortex sidebar** (activity bar icon) shows all saved memories with their source and timestamp. Memories saved via MCP from AI chats appear automatically.
+
+**Available commands** (open Command Palette with `Cmd+Shift+P`):
+- `Cortex: Search Memories` — semantic search across all memories
+- `Cortex: List Memories` — view all memories in the output panel
+- `Cortex: Delete Memory` — select and delete a specific memory
+- `Cortex: Clear All Memories` — delete all memories (requires confirmation)
+- `Cortex: Show Top Result for Current File` — quick relevance check for the active file
+
+Memories are automatically pruned after 30 days if they've never been accessed.
 
 ---
 
