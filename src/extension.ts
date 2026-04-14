@@ -11,6 +11,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "cortex.sidebarView";
 
   private _view?: vscode.WebviewView;
+  private _captures: Array<{ text: string; source: string }> = [];
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -28,8 +29,14 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._buildHtml(webviewView.webview);
 
+    // Replay buffered captures into the freshly-created webview
+    for (const { text, source } of this._captures) {
+      void webviewView.webview.postMessage({ command: "capture", text, source });
+    }
+
     webviewView.webview.onDidReceiveMessage((message: { command: string }) => {
       if (message.command === "clear") {
+        this._captures = [];
         try {
           this._view?.webview.postMessage({ command: "clear" });
         } catch {
@@ -40,6 +47,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   }
 
   addCapture(text: string, source: string): void {
+    this._captures.push({ text, source });
     try {
       this._view?.webview.postMessage({ command: "capture", text, source });
     } catch {

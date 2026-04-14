@@ -37,6 +37,8 @@ export class CortexDatabase {
       ? new Database(dbPath, { nativeBinding } as Database.Options)
       : new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
+    // Allow up to 5 s for a write lock when multiple MCP server processes run concurrently
+    this.db.pragma("busy_timeout = 5000");
     this._migrate();
   }
 
