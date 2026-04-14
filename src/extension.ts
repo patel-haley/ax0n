@@ -69,7 +69,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
     if (!this._view) {
       return;
     }
-    const memories = this._db.getAllMemories();
+    const memories = this._db.getMemoriesForSidebar();
     try {
       void this._view.webview.postMessage({ command, memories });
     } catch {
@@ -337,13 +337,16 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // Poll for memories saved by the MCP server (a separate process) and refresh
-  // the sidebar when the count changes.
-  let lastKnownCount = db.getAllMemories().length;
+  // Poll for changes from the MCP server (separate process). Compare count + max
+  // timestamp so dedup updates (same row count, new timestamp) still refresh.
+  let lastListMeta = db.getMemoryListMeta();
   const pollInterval = setInterval(() => {
-    const count = db.getAllMemories().length;
-    if (count !== lastKnownCount) {
-      lastKnownCount = count;
+    const meta = db.getMemoryListMeta();
+    if (
+      meta.count !== lastListMeta.count ||
+      meta.maxTimestamp !== lastListMeta.maxTimestamp
+    ) {
+      lastListMeta = meta;
       provider.refresh();
     }
   }, 5000);
@@ -367,10 +370,6 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         return;
       }
-
-      const source = `${path.basename(editor.document.fileName)} · L${
-        selection.start.line + 1
-      }–${selection.end.line + 1}`;
 
       vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
@@ -461,7 +460,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cortex.listMemories", () => {
-      const memories = db.getAllMemories();
+      const memories = db.getMemoriesForSidebar();
 
       if (memories.length === 0) {
         vscode.window.showInformationMessage("Cortex: No memories saved yet.");
@@ -486,7 +485,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cortex.deleteMemory", async () => {
-      const memories = db.getAllMemories();
+      const memories = db.getMemoriesForSidebar();
 
       if (memories.length === 0) {
         vscode.window.showInformationMessage("Cortex: No memories to delete.");
@@ -527,7 +526,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cortex.clearMemories", async () => {
-      const count = db.getAllMemories().length;
+      const count = db.getMemoryListMeta().count;
 
       if (count === 0) {
         vscode.window.showInformationMessage("Cortex: Memory base is already empty.");

@@ -17,6 +17,14 @@ export interface MemoryWithVector extends Omit<Memory, "vector"> {
   vector: Float32Array | null;
 }
 
+/** Row shape for UI lists — no embedding vector (avoids huge postMessage payloads). */
+export interface MemoryListItem {
+  id: string;
+  content: string;
+  file_path: string;
+  timestamp: number;
+}
+
 function serializeVector(v: Float32Array): string {
   return JSON.stringify(Array.from(v));
 }
@@ -134,6 +142,25 @@ export class CortexDatabase {
     return this.db
       .prepare("SELECT * FROM memories ORDER BY timestamp DESC")
       .all() as Memory[];
+  }
+
+  /** Lightweight list for sidebar / quick pick — excludes embedding vectors. */
+  getMemoriesForSidebar(): MemoryListItem[] {
+    return this.db
+      .prepare(
+        `SELECT id, content, file_path, timestamp FROM memories ORDER BY timestamp DESC`
+      )
+      .all() as MemoryListItem[];
+  }
+
+  /** For polling: detects inserts, deletes, and updates (dedup touches timestamp). */
+  getMemoryListMeta(): { count: number; maxTimestamp: number } {
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) AS c, COALESCE(MAX(timestamp), 0) AS t FROM memories`
+      )
+      .get() as { c: number; t: number };
+    return { count: row.c, maxTimestamp: row.t };
   }
 
   getAllMemoriesWithVectors(): MemoryWithVector[] {
