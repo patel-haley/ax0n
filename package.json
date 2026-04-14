@@ -25,6 +25,22 @@
         "title": "Cortex: Search Memories"
       },
       {
+        "command": "cortex.showTopResult",
+        "title": "Cortex: Show Top Result for Current File"
+      },
+      {
+        "command": "cortex.listMemories",
+        "title": "Cortex: List Memories"
+      },
+      {
+        "command": "cortex.deleteMemory",
+        "title": "Cortex: Delete Memory"
+      },
+      {
+        "command": "cortex.clearMemories",
+        "title": "Cortex: Clear All Memories"
+      },
+      {
         "command": "cortex.copyMcpConfig",
         "title": "Cortex: Copy Cursor MCP Config"
       },

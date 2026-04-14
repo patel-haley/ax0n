@@ -11,80 +11,187 @@ body {
   font-size: var(--vscode-font-size, 13px);
   color: var(--vscode-foreground);
   background: var(--vscode-sideBar-background);
-  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0;
 }
+
+/* ── Header ─────────────────────────────────────── */
 
 #header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  padding: 10px 12px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+}
+
+#header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#cortex-logo {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  opacity: 0.55;
 }
 
 #header h2 {
-  font-size: 1em;
+  font-size: 0.82em;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.7;
+  opacity: 0.55;
+}
+
+#memory-count {
+  font-size: 0.72em;
+  font-weight: 500;
+  opacity: 1;
+  background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+  color: var(--vscode-foreground);
+  padding: 1px 6px;
+  border-radius: 10px;
 }
 
 #clear-btn {
-  font-size: 0.8em;
-  padding: 2px 8px;
-  border: 1px solid var(--vscode-button-secondaryBorder, transparent);
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border-radius: 3px;
+  font-size: 0.75em;
+  padding: 3px 9px;
+  border: 1px solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+  background: transparent;
+  color: var(--vscode-foreground);
+  opacity: 0.5;
+  border-radius: 4px;
   cursor: pointer;
+  display: none;
+  transition: opacity 0.15s;
 }
 
 #clear-btn:hover {
-  background: var(--vscode-button-secondaryHoverBackground);
+  opacity: 1;
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 15%, transparent);
+  border-color: var(--vscode-errorForeground, #f48771);
+  color: var(--vscode-errorForeground, #f48771);
 }
 
+/* ── Empty state ─────────────────────────────────── */
+
 #empty-state {
-  margin-top: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
   text-align: center;
+  gap: 10px;
+}
+
+#empty-icon {
+  width: 48px;
+  height: 48px;
+  opacity: 0.12;
+  margin-bottom: 4px;
+}
+
+#empty-state p {
   opacity: 0.5;
-  line-height: 1.7;
+  line-height: 1.6;
+  font-size: 0.9em;
 }
 
 #empty-state kbd {
   font-family: var(--vscode-editor-font-family, monospace);
-  background: var(--vscode-keybindingLabel-background);
-  border: 1px solid var(--vscode-keybindingLabel-border);
+  background: color-mix(in srgb, var(--vscode-foreground) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
   border-radius: 3px;
-  padding: 1px 4px;
+  padding: 1px 5px;
   font-size: 0.85em;
 }
 
-#capture-list {
+/* ── Memory list ─────────────────────────────────── */
+
+#memory-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1px;
+  padding: 6px 0;
 }
 
-.capture-item {
-  background: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-widget-border, transparent);
-  border-radius: 4px;
-  padding: 8px 10px;
-  overflow: hidden;
+.memory-item {
+  padding: 9px 12px;
+  border-left: 2px solid transparent;
+  transition: background 0.1s, border-color 0.1s;
+  cursor: default;
 }
 
-.capture-source {
-  font-size: 0.75em;
-  opacity: 0.55;
+.memory-item:hover {
+  background: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+  border-left-color: color-mix(in srgb, var(--vscode-foreground) 25%, transparent);
+}
+
+.memory-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 4px;
 }
 
-.capture-text {
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 0.85em;
-  white-space: pre-wrap;
+.memory-source {
+  font-size: 0.72em;
+  font-weight: 600;
+  opacity: 0.6;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.memory-date {
+  font-size: 0.7em;
+  opacity: 0.35;
+  flex: 1;
+}
+
+.delete-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--vscode-foreground);
+  opacity: 0;
+  cursor: pointer;
+  font-size: 1em;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: opacity 0.1s, background 0.1s;
+}
+
+.memory-item:hover .delete-btn {
+  opacity: 0.4;
+}
+
+.delete-btn:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--vscode-errorForeground, #f48771) 20%, transparent);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.memory-preview {
+  font-size: 0.83em;
+  opacity: 0.65;
+  line-height: 1.5;
   word-break: break-word;
-  max-height: 120px;
-  overflow-y: auto;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }

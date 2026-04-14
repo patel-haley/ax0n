@@ -144,6 +144,14 @@ export class CortexDatabase {
     return rows.map((row) => ({ ...row, vector: deserializeVector(row.vector) }));
   }
 
+  deleteMemory(id: string): boolean {
+    return this.db.prepare("DELETE FROM memories WHERE id = ?").run(id).changes > 0;
+  }
+
+  clearAllMemories(): number {
+    return this.db.prepare("DELETE FROM memories").run().changes;
+  }
+
   pruneStaleMemories(): number {
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
     return this.db

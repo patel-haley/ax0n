@@ -1,55 +1,97 @@
 // @ts-check
 (function () {
   const vscode = acquireVsCodeApi();
-  const list = /** @type {HTMLUListElement} */ (document.getElementById("capture-list"));
+  const list = /** @type {HTMLUListElement} */ (document.getElementById("memory-list"));
   const emptyState = /** @type {HTMLParagraphElement} */ (document.getElementById("empty-state"));
   const clearBtn = /** @type {HTMLButtonElement} */ (document.getElementById("clear-btn"));
+  const countEl = /** @type {HTMLSpanElement} */ (document.getElementById("memory-count"));
 
-  /** @type {{ text: string; source: string }[]} */
-  let captures = [];
+  /**
+   * @typedef {{ id: string; content: string; file_path: string; timestamp: number }} Memory
+   * @type {Memory[]}
+   */
+  let memories = [];
+
+  /** @param {string} filePath */
+  function sourceName(filePath) {
+    if (filePath === "cursor-chat" || filePath === "codex-chat") {
+      return filePath;
+    }
+    return filePath.split("/").pop() || filePath;
+  }
 
   function render() {
     list.innerHTML = "";
-    emptyState.style.display = captures.length === 0 ? "block" : "none";
+    emptyState.style.display = memories.length === 0 ? "block" : "none";
+    clearBtn.style.display = memories.length === 0 ? "none" : "inline-block";
+    countEl.textContent = memories.length > 0 ? `${memories.length}` : "";
 
-    captures.forEach(({ text, source }) => {
+    memories.forEach((m) => {
       const li = document.createElement("li");
-      li.className = "capture-item";
+      li.className = "memory-item";
+      li.dataset.id = m.id;
 
-      const src = document.createElement("div");
-      src.className = "capture-source";
-      src.textContent = source;
+      const meta = document.createElement("div");
+      meta.className = "memory-meta";
 
-      const pre = document.createElement("pre");
-      pre.className = "capture-text";
-      pre.textContent = text;
+      const src = document.createElement("span");
+      src.className = "memory-source";
+      src.textContent = sourceName(m.file_path);
 
-      li.appendChild(src);
-      li.appendChild(pre);
-      list.prepend(li); // newest at the top
+      const date = document.createElement("span");
+      date.className = "memory-date";
+      date.textContent = new Date(m.timestamp).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "delete-btn";
+      delBtn.title = "Delete this memory";
+      delBtn.textContent = "×";
+      delBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        vscode.postMessage({ command: "delete", id: m.id });
+      });
+
+      meta.appendChild(src);
+      meta.appendChild(date);
+      meta.appendChild(delBtn);
+
+      const preview = document.createElement("p");
+      preview.className = "memory-preview";
+      preview.textContent = m.content.replace(/\s+/g, " ").slice(0, 160);
+
+      li.appendChild(meta);
+      li.appendChild(preview);
+      list.appendChild(li);
     });
   }
 
   clearBtn.addEventListener("click", () => {
-    captures = [];
-    render();
-    vscode.postMessage({ command: "clear" });
+    vscode.postMessage({ command: "clearAll" });
   });
 
   window.addEventListener("message", (/** @type {MessageEvent} */ event) => {
     const message = event.data;
     switch (message.command) {
-      case "capture":
-        captures.push({ text: message.text, source: message.source });
+      case "init":
+      case "refresh":
+        memories = message.memories ?? [];
         render();
         break;
-      case "clear":
-        captures = [];
+      case "deleted":
+        memories = memories.filter((m) => m.id !== message.id);
+        render();
+        break;
+      case "cleared":
+        memories = [];
         render();
         break;
     }
   });
 
-  // Initial render
   render();
 })();

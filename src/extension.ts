@@ -11,9 +11,11 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   public static readonly viewId = "cortex.sidebarView";
 
   private _view?: vscode.WebviewView;
-  private _captures: Array<{ text: string; source: string }> = [];
 
-  constructor(private readonly _extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly _extensionUri: vscode.Uri,
+    private readonly _db: CortexDatabase
+  ) {}
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -29,27 +31,44 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._buildHtml(webviewView.webview);
 
-    // Replay buffered captures into the freshly-created webview
-    for (const { text, source } of this._captures) {
-      void webviewView.webview.postMessage({ command: "capture", text, source });
-    }
+    // Send the full memory list once the webview is ready
+    this._sendMemories("init");
 
-    webviewView.webview.onDidReceiveMessage((message: { command: string }) => {
-      if (message.command === "clear") {
-        this._captures = [];
-        try {
-          this._view?.webview.postMessage({ command: "clear" });
-        } catch {
-          this._view = undefined;
+    webviewView.webview.onDidReceiveMessage(
+      (message: { command: string; id?: string }) => {
+        if (message.command === "delete" && message.id) {
+          this._db.deleteMemory(message.id);
+          try {
+            this._view?.webview.postMessage({ command: "deleted", id: message.id });
+          } catch {
+            this._view = undefined;
+          }
+        }
+
+        if (message.command === "clearAll") {
+          this._db.clearAllMemories();
+          try {
+            this._view?.webview.postMessage({ command: "cleared" });
+          } catch {
+            this._view = undefined;
+          }
         }
       }
-    });
+    );
   }
 
-  addCapture(text: string, source: string): void {
-    this._captures.push({ text, source });
+  /** Reload memories from the database and push a fresh list to the webview. */
+  refresh(): void {
+    this._sendMemories("refresh");
+  }
+
+  private _sendMemories(command: "init" | "refresh"): void {
+    if (!this._view) {
+      return;
+    }
+    const memories = this._db.getAllMemories();
     try {
-      this._view?.webview.postMessage({ command: "capture", text, source });
+      void this._view.webview.postMessage({ command, memories });
     } catch {
       this._view = undefined;
     }
@@ -77,11 +96,14 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="header">
-    <h2>Cortex Captures</h2>
-    <button id="clear-btn" title="Clear all captures">Clear</button>
+    <div id="header-left">
+      <h2>Memories</h2>
+      <span id="memory-count"></span>
+    </div>
+    <button id="clear-btn" title="Delete all memories">Clear All</button>
   </div>
-  <ul id="capture-list"></ul>
-  <p id="empty-state">No captures yet.<br/>Select text and run <kbd>Cortex: Capture Selection</kbd>.</p>
+  <ul id="memory-list"></ul>
+  <p id="empty-state">No memories yet.<br/>Capture text with <kbd>⌘⇧C</kbd> or let your AI chats save context automatically.</p>
 
   <script nonce="${nonce}" src="${mediaUri("sidebar.js")}"></script>
 </body>
@@ -298,7 +320,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  const provider = new CortexSidebarProvider(context.extensionUri);
+  const provider = new CortexSidebarProvider(context.extensionUri, db);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -330,12 +352,12 @@ export function activate(context: vscode.ExtensionContext): void {
         selection.start.line + 1
       }–${selection.end.line + 1}`;
 
-      provider.addCapture(text, source);
       vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
 
       void maybeSummarize(text).then((textToSave) =>
         saveWithDedup(textToSave, editor.document.fileName, db, embedder, (msg) => out.appendLine(msg))
       ).then(({ id, deduplicated }) => {
+        provider.refresh();
         vscode.window.showInformationMessage(
           deduplicated
             ? `Cortex: Updated existing memory [${id.slice(0, 8)}]`
@@ -381,6 +403,129 @@ export function activate(context: vscode.ExtensionContext): void {
       });
 
       out.show(true);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.showTopResult", async () => {
+      const editor = vscode.window.activeTextEditor;
+
+      if (!editor) {
+        vscode.window.showWarningMessage("Cortex: No active editor.");
+        return;
+      }
+
+      const currentFilePath = editor.document.fileName;
+      const query = path.basename(currentFilePath);
+      const results = await search(query, db, embedder, {
+        topK: 1,
+        currentFilePath,
+      });
+
+      if (results.length === 0) {
+        vscode.window.showInformationMessage(
+          `Cortex: no memories found for ${query}.`
+        );
+        return;
+      }
+
+      const top = results[0];
+      const fileName = path.basename(top.memory.file_path);
+      const preview = top.memory.content.replace(/\s+/g, " ").slice(0, 120);
+
+      vscode.window.showInformationMessage(
+        `Cortex: ${fileName} [${top.finalScore.toFixed(3)}] ${preview}`
+      );
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.listMemories", () => {
+      const memories = db.getAllMemories();
+
+      if (memories.length === 0) {
+        vscode.window.showInformationMessage("Cortex: No memories saved yet.");
+        return;
+      }
+
+      out.clear();
+      out.appendLine(`Memories (${memories.length} total)\n`);
+
+      memories.forEach((m, i) => {
+        const date = new Date(m.timestamp).toLocaleString();
+        const source = path.basename(m.file_path);
+        const preview = m.content.replace(/\s+/g, " ").slice(0, 120);
+        out.appendLine(`${i + 1}. [${m.id.slice(0, 8)}] ${source}  ·  ${date}`);
+        out.appendLine(`   ${preview}`);
+        out.appendLine("");
+      });
+
+      out.show(true);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.deleteMemory", async () => {
+      const memories = db.getAllMemories();
+
+      if (memories.length === 0) {
+        vscode.window.showInformationMessage("Cortex: No memories to delete.");
+        return;
+      }
+
+      const items = memories.map((m) => ({
+        label: `[${m.id.slice(0, 8)}] ${path.basename(m.file_path)}`,
+        description: new Date(m.timestamp).toLocaleString(),
+        detail: m.content.replace(/\s+/g, " ").slice(0, 100),
+        id: m.id,
+      }));
+
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: "Select a memory to delete",
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+
+      if (!picked) {
+        return;
+      }
+
+      const confirmed = await vscode.window.showWarningMessage(
+        `Delete memory [${picked.id.slice(0, 8)}]?`,
+        { modal: true },
+        "Delete"
+      );
+
+      if (confirmed === "Delete") {
+        db.deleteMemory(picked.id);
+        provider.refresh();
+        out.appendLine(`deleted memory [${picked.id.slice(0, 8)}]`);
+        vscode.window.showInformationMessage("Cortex: Memory deleted.");
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cortex.clearMemories", async () => {
+      const count = db.getAllMemories().length;
+
+      if (count === 0) {
+        vscode.window.showInformationMessage("Cortex: Memory base is already empty.");
+        return;
+      }
+
+      const confirmed = await vscode.window.showWarningMessage(
+        `Permanently delete all ${count} memories? This cannot be undone.`,
+        { modal: true },
+        "Delete All"
+      );
+
+      if (confirmed === "Delete All") {
+        const deleted = db.clearAllMemories();
+        provider.refresh();
+        out.appendLine(`cleared all memories (${deleted} deleted)`);
+        vscode.window.showInformationMessage(`Cortex: Cleared ${deleted} memories.`);
+      }
     })
   );
 
