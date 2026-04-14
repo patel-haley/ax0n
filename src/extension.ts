@@ -31,11 +31,14 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.html = this._buildHtml(webviewView.webview);
 
-    // Send the full memory list once the webview is ready
-    this._sendMemories("init");
-
     webviewView.webview.onDidReceiveMessage(
       (message: { command: string; id?: string }) => {
+        // Webview signals it has loaded and its message listener is live.
+        if (message.command === "ready") {
+          this._sendMemories("init");
+          return;
+        }
+
         if (message.command === "delete" && message.id) {
           this._db.deleteMemory(message.id);
           try {
@@ -90,6 +93,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none';
                  style-src ${webview.cspSource} 'unsafe-inline';
+                 img-src ${webview.cspSource};
                  script-src 'nonce-${nonce}';" />
   <link rel="stylesheet" href="${mediaUri("sidebar.css")}" />
   <title>Cortex</title>
@@ -97,13 +101,17 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
 <body>
   <div id="header">
     <div id="header-left">
-      <h2>Memories</h2>
+      <img id="cortex-logo" src="${mediaUri("cortex-icon.svg")}" alt="" />
+      <h2>Saved Memories</h2>
       <span id="memory-count"></span>
     </div>
     <button id="clear-btn" title="Delete all memories">Clear All</button>
   </div>
   <ul id="memory-list"></ul>
-  <p id="empty-state">No memories yet.<br/>Capture text with <kbd>⌘⇧C</kbd> or let your AI chats save context automatically.</p>
+  <div id="empty-state">
+    <img id="empty-icon" src="${mediaUri("cortex-icon.svg")}" alt="" />
+    <p>No memories yet.<br/>Capture text with <kbd>Cmd+Shift+C</kbd> or let your AI chats save context automatically.</p>
+  </div>
 
   <script nonce="${nonce}" src="${mediaUri("sidebar.js")}"></script>
 </body>
@@ -328,6 +336,18 @@ export function activate(context: vscode.ExtensionContext): void {
       provider
     )
   );
+
+  // Poll for memories saved by the MCP server (a separate process) and refresh
+  // the sidebar when the count changes.
+  let lastKnownCount = db.getAllMemories().length;
+  const pollInterval = setInterval(() => {
+    const count = db.getAllMemories().length;
+    if (count !== lastKnownCount) {
+      lastKnownCount = count;
+      provider.refresh();
+    }
+  }, 5000);
+  context.subscriptions.push({ dispose: () => clearInterval(pollInterval) });
 
   context.subscriptions.push(
     vscode.commands.registerCommand("cortex.capture", () => {

@@ -23,7 +23,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px 10px;
+  padding: 12px 12px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
 }
 
@@ -34,18 +34,19 @@ body {
 }
 
 #cortex-logo {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  opacity: 0.55;
+  opacity: 0.9;
+  filter: brightness(0) invert(1);
 }
 
 #header h2 {
-  font-size: 0.82em;
-  font-weight: 600;
+  font-size: 1em;
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.55;
+  opacity: 0.9;
 }
 
 #memory-count {
@@ -94,8 +95,9 @@ body {
 #empty-icon {
   width: 48px;
   height: 48px;
-  opacity: 0.12;
+  opacity: 0.4;
   margin-bottom: 4px;
+  filter: brightness(0) invert(1);
 }
 
 #empty-state p {

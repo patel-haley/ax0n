@@ -1,8 +1,10 @@
 // @ts-check
+/// <reference types="@types/vscode-webview" />
 (function () {
   const vscode = acquireVsCodeApi();
+  vscode.postMessage({ command: "ready" });
   const list = /** @type {HTMLUListElement} */ (document.getElementById("memory-list"));
-  const emptyState = /** @type {HTMLParagraphElement} */ (document.getElementById("empty-state"));
+  const emptyState = /** @type {HTMLDivElement} */ (document.getElementById("empty-state"));
   const clearBtn = /** @type {HTMLButtonElement} */ (document.getElementById("clear-btn"));
   const countEl = /** @type {HTMLSpanElement} */ (document.getElementById("memory-count"));
 
@@ -22,7 +24,7 @@
 
   function render() {
     list.innerHTML = "";
-    emptyState.style.display = memories.length === 0 ? "block" : "none";
+    emptyState.style.display = memories.length === 0 ? "flex" : "none";
     clearBtn.style.display = memories.length === 0 ? "none" : "inline-block";
     countEl.textContent = memories.length > 0 ? `${memories.length}` : "";
 
