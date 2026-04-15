@@ -1,9 +1,10 @@
 {
-  "name": "cortex",
+  "name": "ax0n",
   "publisher": "patel-haley",
-  "displayName": "Cortex",
-  "description": "Local-first AI memory for your IDE. Captures context as you work and surfaces it automatically in Cursor and Codex via MCP. No re-explaining your stack.",
-  "version": "0.0.1",
+  "displayName": "Ax0n",
+  "description": "Local-first AI memory for your IDE. Automatic context injection. No re-explaining your stack.",
+  "icon": "media/ax0n.jpg",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.88.0"
   },
@@ -17,70 +18,70 @@
   "contributes": {
     "commands": [
       {
-        "command": "cortex.capture",
-        "title": "Cortex: Capture Selection"
+        "command": "ax0n.capture",
+        "title": "Ax0n: Capture Selection"
       },
       {
-        "command": "cortex.search",
-        "title": "Cortex: Search Memories"
+        "command": "ax0n.search",
+        "title": "Ax0n: Search Memories"
       },
       {
-        "command": "cortex.showTopResult",
-        "title": "Cortex: Show Top Result for Current File"
+        "command": "ax0n.showTopResult",
+        "title": "Ax0n: Show Top Result for Current File"
       },
       {
-        "command": "cortex.listMemories",
-        "title": "Cortex: List Memories"
+        "command": "ax0n.listMemories",
+        "title": "Ax0n: List Memories"
       },
       {
-        "command": "cortex.deleteMemory",
-        "title": "Cortex: Delete Memory"
+        "command": "ax0n.deleteMemory",
+        "title": "Ax0n: Delete Memory"
       },
       {
-        "command": "cortex.clearMemories",
-        "title": "Cortex: Clear All Memories"
+        "command": "ax0n.clearMemories",
+        "title": "Ax0n: Clear All Memories"
       },
       {
-        "command": "cortex.copyMcpConfig",
-        "title": "Cortex: Copy Cursor MCP Config"
+        "command": "ax0n.copyMcpConfig",
+        "title": "Ax0n: Copy Cursor MCP Config"
       },
       {
-        "command": "cortex.showSetup",
-        "title": "Cortex: Setup"
+        "command": "ax0n.showSetup",
+        "title": "Ax0n: Setup"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "cortex-sidebar",
-          "title": "Cortex",
-          "icon": "media/cortex-icon.svg"
+          "id": "ax0n-sidebar",
+          "title": "Ax0n",
+          "icon": "media/ax0n-icon.svg"
         }
       ]
     },
     "views": {
-      "cortex-sidebar": [
+      "ax0n-sidebar": [
         {
           "type": "webview",
-          "id": "cortex.sidebarView",
-          "name": "Cortex",
-          "icon": "media/cortex-icon.svg",
-          "contextualTitle": "Cortex"
+          "id": "ax0n.sidebarView",
+          "name": "Ax0n",
+          "icon": "media/ax0n-icon.svg",
+          "contextualTitle": "Ax0n"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "cortex.capture",
+        "command": "ax0n.capture",
         "key": "ctrl+shift+c",
         "mac": "cmd+shift+c",
         "when": "editorHasSelection"
       }
     ],
     "configuration": {
-      "title": "Cortex",
+      "title": "Ax0n",
       "properties": {
-        "cortex.ollamaModel": {
+        "ax0n.ollamaModel": {
           "type": "string",
           "default": "llama3",
           "markdownDescription": "Ollama model used to summarize captures before embedding. Requires a running Ollama instance at `http://localhost:11434`. Set to an empty string to disable summarization."

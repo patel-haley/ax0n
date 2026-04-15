@@ -1,5 +1,5 @@
 import * as path from "path";
-import { CortexDatabase, MemoryWithVector } from "./database";
+import { Ax0nDatabase, MemoryWithVector } from "./database";
 import { TextEmbedder } from "./embedder";
 import { cosine } from "./utils";
 
@@ -53,7 +53,7 @@ export function scoreResult(
 
 export async function search(
   query: string,
-  db: CortexDatabase,
+  db: Ax0nDatabase,
   embedder: TextEmbedder,
   options: { topK?: number; threshold?: number; currentFilePath?: string } = {}
 ): Promise<SearchResult[]> {

@@ -1,4 +1,4 @@
-# Cortex will not auto-capture files matching these patterns.
+# Ax0n will not auto-capture files matching these patterns.
 # Uses glob syntax (same as .gitignore).
 
 # Dependencies

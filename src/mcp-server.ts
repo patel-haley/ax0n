@@ -7,12 +7,12 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { CortexDatabase } from "./database";
+import { Ax0nDatabase } from "./database";
 import { Embedder, TextEmbedder } from "./embedder";
 import { search } from "./search";
 import { saveWithDedup } from "./memory";
 
-const EXTENSION_ID = "patel-haley.cortex";
+const EXTENSION_ID = "ax0n.ax0n";
 
 const NATIVE_BINDING = (() => {
   // The better-sqlite3 binary in node_modules may be compiled for Cursor's
@@ -23,8 +23,8 @@ const NATIVE_BINDING = (() => {
 })();
 
 const DB_PATH = (() => {
-  if (process.env.CORTEX_DB_PATH) {
-    return process.env.CORTEX_DB_PATH;
+  if (process.env.AX0N_DB_PATH) {
+    return process.env.AX0N_DB_PATH;
   }
 
   const appDirs: Record<string, string> = {
@@ -45,13 +45,13 @@ const DB_PATH = (() => {
   return path.join(appDir, "Cursor", "User", "globalStorage", EXTENSION_ID);
 })();
 
-const db = new CortexDatabase(DB_PATH, NATIVE_BINDING);
+const db = new Ax0nDatabase(DB_PATH, NATIVE_BINDING);
 // MCP uses stdout for JSON-RPC — all logging must go to stderr only
-const log = (msg: string) => process.stderr.write(`[cortex] ${msg}\n`);
+const log = (msg: string) => process.stderr.write(`[ax0n] ${msg}\n`);
 const embedder = createEmbedder();
 
 const server = new Server(
-  { name: "cortex", version: "0.0.1" },
+  { name: "ax0n", version: "1.0.0" },
   { capabilities: { tools: {} } }
 );
 
@@ -143,7 +143,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 function createEmbedder(): TextEmbedder {
-  if (process.env.CORTEX_TEST_EMBEDDER === "deterministic") {
+  if (process.env.AX0N_TEST_EMBEDDER === "deterministic") {
     return { embed: async (text: string) => deterministicVector(text) };
   }
 
@@ -182,6 +182,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("Cortex MCP server error:", err);
+  console.error("Ax0n MCP server error:", err);
   process.exit(1);
 });

@@ -37,12 +37,12 @@ function deserializeVector(s: string | null): Float32Array | null {
   return new Float32Array(JSON.parse(s));
 }
 
-export class CortexDatabase {
+export class Ax0nDatabase {
   private db: Database.Database;
 
   constructor(storagePath: string, nativeBinding?: string) {
     fs.mkdirSync(storagePath, { recursive: true });
-    const dbPath = path.join(storagePath, "cortex.db");
+    const dbPath = path.join(storagePath, "ax0n.db");
     this.db = nativeBinding
       ? new Database(dbPath, { nativeBinding } as Database.Options)
       : new Database(dbPath);

@@ -1,4 +1,4 @@
-# Cortex Memory
+# Ax0n Memory
 
 At the start of every session, call `search_memories` with a query derived from the user's first message. If relevant memories are returned, use them to inform your response.
 

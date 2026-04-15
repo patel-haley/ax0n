@@ -2,20 +2,20 @@ import * as fs from "fs";
 import * as path from "path";
 import * as childProcess from "child_process";
 import * as vscode from "vscode";
-import { CortexDatabase } from "./database";
+import { Ax0nDatabase } from "./database";
 import { Embedder } from "./embedder";
 import { OllamaSummarizer } from "./summarizer";
 import { search } from "./search";
 import { saveWithDedup } from "./memory";
 
-class CortexSidebarProvider implements vscode.WebviewViewProvider {
-  public static readonly viewId = "cortex.sidebarView";
+class Ax0nSidebarProvider implements vscode.WebviewViewProvider {
+  public static readonly viewId = "ax0n.sidebarView";
 
   private _view?: vscode.WebviewView;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    private readonly _db: CortexDatabase
+    private readonly _db: Ax0nDatabase
   ) {}
 
   resolveWebviewView(
@@ -113,12 +113,12 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
                  img-src ${webview.cspSource};
                  script-src 'nonce-${nonce}';" />
   <link rel="stylesheet" href="${mediaUri("sidebar.css")}" />
-  <title>Cortex</title>
+  <title>Ax0n</title>
 </head>
 <body>
   <div id="header">
     <div id="header-left">
-      <img id="cortex-logo" src="${mediaUri("cortex-icon.svg")}" alt="" />
+      <img id="ax0n-logo" src="${mediaUri("ax0n-icon.svg")}" alt="" />
       <h2>Saved Memories</h2>
       <span id="memory-count"></span>
     </div>
@@ -126,7 +126,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   </div>
   <ul id="memory-list"></ul>
   <div id="empty-state">
-    <img id="empty-icon" src="${mediaUri("cortex-icon.svg")}" alt="" />
+    <img id="empty-icon" src="${mediaUri("ax0n-icon.svg")}" alt="" />
     <p>No memories yet.<br/>Capture text with <kbd>Cmd+Shift+C</kbd> or let your AI chats save context automatically.</p>
   </div>
 
@@ -136,7 +136,7 @@ class CortexSidebarProvider implements vscode.WebviewViewProvider {
   }
 }
 
-export const out = vscode.window.createOutputChannel("Cortex");
+export const out = vscode.window.createOutputChannel("Ax0n");
 
 class SetupPanel {
   private static _current: SetupPanel | undefined;
@@ -154,8 +154,8 @@ class SetupPanel {
 
   private constructor(context: vscode.ExtensionContext) {
     this._panel = vscode.window.createWebviewPanel(
-      "cortex.setup",
-      "Cortex — Finish Setup",
+      "ax0n.setup",
+      "Ax0n — Finish Setup",
       vscode.ViewColumn.One,
       { enableScripts: true, retainContextWhenHidden: true }
     );
@@ -166,11 +166,11 @@ class SetupPanel {
     this._panel.webview.onDidReceiveMessage(
       async (message: { command: string }) => {
         if (message.command === "copyMcpConfig") {
-          await vscode.commands.executeCommand("cortex.copyMcpConfig");
+          await vscode.commands.executeCommand("ax0n.copyMcpConfig");
           this._panel.webview.postMessage({ command: "configCopied" });
         }
         if (message.command === "done") {
-          await context.globalState.update("cortex.setupComplete", true);
+          await context.globalState.update("ax0n.setupComplete", true);
           this._panel.dispose();
         }
       },
@@ -201,7 +201,7 @@ class SetupPanel {
         content="default-src 'none';
                  style-src ${csp} 'unsafe-inline';
                  script-src 'nonce-${nonce}';" />
-  <title>Cortex Setup</title>
+  <title>Ax0n Setup</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -259,7 +259,7 @@ class SetupPanel {
 <body>
   <h1>One step to finish setup</h1>
   <p>
-    Cortex needs to be registered as an MCP server in Cursor so it can inject
+    Ax0n needs to be registered as an MCP server in Cursor so it can inject
     context into your AI chats automatically. Copy the config snippet below,
     then paste it into <code>~/.cursor/mcp.json</code>.
   </p>
@@ -300,12 +300,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   fs.mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
 
-  let db: CortexDatabase;
+  let db: Ax0nDatabase;
   try {
-    db = new CortexDatabase(context.globalStorageUri.fsPath);
+    db = new Ax0nDatabase(context.globalStorageUri.fsPath);
     context.subscriptions.push({ dispose: () => db.close() });
   } catch (err) {
-    vscode.window.showErrorMessage(`Cortex: failed to open database — ${err}`);
+    vscode.window.showErrorMessage(`Ax0n: failed to open database — ${err}`);
     return;
   }
 
@@ -316,7 +316,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const embedder = new Embedder(context.globalStorageUri.fsPath, (msg) => out.appendLine(msg));
 
-  const ollamaModel = vscode.workspace.getConfiguration("cortex").get<string>("ollamaModel", "llama3").trim();
+  const ollamaModel = vscode.workspace.getConfiguration("ax0n").get<string>("ollamaModel", "llama3").trim();
   const summarizer = new OllamaSummarizer(ollamaModel);
   let ollamaAvailable = false;
 
@@ -345,11 +345,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  const provider = new CortexSidebarProvider(context.extensionUri, db);
+  const provider = new Ax0nSidebarProvider(context.extensionUri, db);
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
-      CortexSidebarProvider.viewId,
+      Ax0nSidebarProvider.viewId,
       provider
     )
   );
@@ -370,11 +370,11 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push({ dispose: () => clearInterval(pollInterval) });
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.capture", () => {
+    vscode.commands.registerCommand("ax0n.capture", () => {
       const editor = vscode.window.activeTextEditor;
 
       if (!editor) {
-        vscode.window.showWarningMessage("Cortex: No active editor.");
+        vscode.window.showWarningMessage("Ax0n: No active editor.");
         return;
       }
 
@@ -383,12 +383,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (!text.trim()) {
         vscode.window.showWarningMessage(
-          "Cortex: Nothing selected — highlight some text first."
+          "Ax0n: Nothing selected — highlight some text first."
         );
         return;
       }
 
-      vscode.commands.executeCommand("workbench.view.extension.cortex-sidebar");
+      vscode.commands.executeCommand("workbench.view.extension.ax0n-sidebar");
 
       void maybeSummarize(text).then((textToSave) =>
         saveWithDedup(textToSave, editor.document.fileName, db, embedder, (msg) => out.appendLine(msg))
@@ -396,18 +396,18 @@ export function activate(context: vscode.ExtensionContext): void {
         provider.refresh();
         vscode.window.showInformationMessage(
           deduplicated
-            ? `Cortex: Updated existing memory [${id.slice(0, 8)}]`
-            : `Cortex: Captured ${text.split("\n").length} line(s) from ${path.basename(editor.document.fileName)} [${id.slice(0, 8)}]`
+            ? `Ax0n: Updated existing memory [${id.slice(0, 8)}]`
+            : `Ax0n: Captured ${text.split("\n").length} line(s) from ${path.basename(editor.document.fileName)} [${id.slice(0, 8)}]`
         );
       }).catch((err) => {
         out.appendLine(`capture failed: ${err}`);
-        vscode.window.showErrorMessage(`Cortex: capture failed — ${err}`);
+        vscode.window.showErrorMessage(`Ax0n: capture failed — ${err}`);
       });
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.search", async () => {
+    vscode.commands.registerCommand("ax0n.search", async () => {
       const query = await vscode.window.showInputBox({
         prompt: "Search your captured memories…",
         placeHolder: "e.g. authentication bug fix",
@@ -421,7 +421,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const results = await search(query, db, embedder, { currentFilePath });
 
       if (results.length === 0) {
-        vscode.window.showInformationMessage("Cortex: no memories found above threshold.");
+        vscode.window.showInformationMessage("Ax0n: no memories found above threshold.");
         return;
       }
 
@@ -443,11 +443,11 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.showTopResult", async () => {
+    vscode.commands.registerCommand("ax0n.showTopResult", async () => {
       const editor = vscode.window.activeTextEditor;
 
       if (!editor) {
-        vscode.window.showWarningMessage("Cortex: No active editor.");
+        vscode.window.showWarningMessage("Ax0n: No active editor.");
         return;
       }
 
@@ -460,7 +460,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (results.length === 0) {
         vscode.window.showInformationMessage(
-          `Cortex: no memories found for ${query}.`
+          `Ax0n: no memories found for ${query}.`
         );
         return;
       }
@@ -470,17 +470,17 @@ export function activate(context: vscode.ExtensionContext): void {
       const preview = top.memory.content.replace(/\s+/g, " ").slice(0, 120);
 
       vscode.window.showInformationMessage(
-        `Cortex: ${fileName} [${top.finalScore.toFixed(3)}] ${preview}`
+        `Ax0n: ${fileName} [${top.finalScore.toFixed(3)}] ${preview}`
       );
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.listMemories", () => {
+    vscode.commands.registerCommand("ax0n.listMemories", () => {
       const memories = db.getMemoriesForSidebar();
 
       if (memories.length === 0) {
-        vscode.window.showInformationMessage("Cortex: No memories saved yet.");
+        vscode.window.showInformationMessage("Ax0n: No memories saved yet.");
         return;
       }
 
@@ -501,11 +501,11 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.deleteMemory", async () => {
+    vscode.commands.registerCommand("ax0n.deleteMemory", async () => {
       const memories = db.getMemoriesForSidebar();
 
       if (memories.length === 0) {
-        vscode.window.showInformationMessage("Cortex: No memories to delete.");
+        vscode.window.showInformationMessage("Ax0n: No memories to delete.");
         return;
       }
 
@@ -536,17 +536,17 @@ export function activate(context: vscode.ExtensionContext): void {
         db.deleteMemory(picked.id);
         provider.refresh();
         out.appendLine(`deleted memory [${picked.id.slice(0, 8)}]`);
-        vscode.window.showInformationMessage("Cortex: Memory deleted.");
+        vscode.window.showInformationMessage("Ax0n: Memory deleted.");
       }
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.clearMemories", async () => {
+    vscode.commands.registerCommand("ax0n.clearMemories", async () => {
       const count = db.getMemoryListMeta().count;
 
       if (count === 0) {
-        vscode.window.showInformationMessage("Cortex: Memory base is already empty.");
+        vscode.window.showInformationMessage("Ax0n: Memory base is already empty.");
         return;
       }
 
@@ -560,19 +560,19 @@ export function activate(context: vscode.ExtensionContext): void {
         const deleted = db.clearAllMemories();
         provider.refresh();
         out.appendLine(`cleared all memories (${deleted} deleted)`);
-        vscode.window.showInformationMessage(`Cortex: Cleared ${deleted} memories.`);
+        vscode.window.showInformationMessage(`Ax0n: Cleared ${deleted} memories.`);
       }
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.copyMcpConfig", async () => {
+    vscode.commands.registerCommand("ax0n.copyMcpConfig", async () => {
       const serverPath = vscode.Uri.joinPath(context.extensionUri, "out", "mcp-server.js").fsPath;
       const nodeCommand = await resolveNodeCommand();
 
       const config = {
         mcpServers: {
-          cortex: { command: nodeCommand, args: [serverPath] },
+          ax0n: { command: nodeCommand, args: [serverPath] },
         },
       };
 
@@ -584,27 +584,27 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const choice = await vscode.window.showInformationMessage(
         nodeCommand === "node"
-          ? "Cortex: MCP config copied. If Cursor cannot start it, replace node with the full path from `which node`."
-          : "Cortex: MCP config copied to clipboard.",
+          ? "Ax0n: MCP config copied. If Cursor cannot start it, replace node with the full path from `which node`."
+          : "Ax0n: MCP config copied to clipboard.",
         "Copied — how do I use this?",
         "Dismiss"
       );
 
       if (choice === "Copied — how do I use this?") {
         await vscode.env.openExternal(
-          vscode.Uri.parse("https://github.com/patel-haley/cortex#setup")
+          vscode.Uri.parse("https://github.com/patel-haley/ax0n#setup")
         );
       }
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("cortex.showSetup", () => {
+    vscode.commands.registerCommand("ax0n.showSetup", () => {
       SetupPanel.show(context);
     })
   );
 
-  if (!context.globalState.get<boolean>("cortex.setupComplete")) {
+  if (!context.globalState.get<boolean>("ax0n.setupComplete")) {
     SetupPanel.show(context);
   }
 
@@ -621,7 +621,7 @@ function getNonce(): string {
 }
 
 async function resolveNodeCommand(): Promise<string> {
-  const override = process.env.CORTEX_NODE_PATH?.trim();
+  const override = process.env.AX0N_NODE_PATH?.trim();
   if (override) {
     return override;
   }

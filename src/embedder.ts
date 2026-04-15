@@ -14,7 +14,7 @@ export class Embedder implements TextEmbedder {
   private _log: (msg: string) => void;
 
   constructor(cacheDir?: string, log?: (msg: string) => void) {
-    this._log = log ?? ((msg) => process.stderr.write(`[cortex] ${msg}\n`));
+    this._log = log ?? ((msg) => process.stderr.write(`[ax0n] ${msg}\n`));
 
     env.allowLocalModels = false;
     env.backends.onnx.wasm.numThreads = 1;

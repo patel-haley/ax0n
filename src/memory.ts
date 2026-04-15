@@ -1,4 +1,4 @@
-import { CortexDatabase } from "./database";
+import { Ax0nDatabase } from "./database";
 import { TextEmbedder } from "./embedder";
 import { cosine } from "./utils";
 
@@ -7,7 +7,7 @@ export const DEDUP_THRESHOLD = 0.92;
 export async function saveWithDedup(
   text: string,
   filePath: string,
-  db: CortexDatabase,
+  db: Ax0nDatabase,
   embedder: TextEmbedder,
   log?: (msg: string) => void
 ): Promise<{ id: string; deduplicated: boolean }> {

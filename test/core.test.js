@@ -5,7 +5,7 @@ const path = require("node:path");
 const test = require("node:test");
 
 const Database = require("better-sqlite3");
-const { CortexDatabase } = require("../out/database");
+const { Ax0nDatabase } = require("../out/database");
 const { saveWithDedup } = require("../out/memory");
 const { search } = require("../out/search");
 const { OllamaSummarizer } = require("../out/summarizer");
@@ -26,10 +26,10 @@ const nativeBinding = fs.existsSync(nativeBindingPath)
   : undefined;
 
 function makeDb() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cortex-test-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ax0n-test-"));
   return {
     dir,
-    db: new CortexDatabase(dir, nativeBinding),
+    db: new Ax0nDatabase(dir, nativeBinding),
     cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),
   };
 }
@@ -88,13 +88,13 @@ test("saveWithDedup updates an existing close match instead of inserting", async
   }
 });
 
-test("CortexDatabase creates the storage directory if needed", () => {
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "cortex-parent-"));
+test("Ax0nDatabase creates the storage directory if needed", () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), "ax0n-parent-"));
   const dir = path.join(parent, "nested", "storage");
-  const db = new CortexDatabase(dir, nativeBinding);
+  const db = new Ax0nDatabase(dir, nativeBinding);
 
   try {
-    assert.equal(fs.existsSync(path.join(dir, "cortex.db")), true);
+    assert.equal(fs.existsSync(path.join(dir, "ax0n.db")), true);
   } finally {
     db.close();
     fs.rmSync(parent, { recursive: true, force: true });
@@ -123,14 +123,14 @@ test("empty Ollama model disables availability checks", async () => {
 });
 
 test("MCP server starts and lists memory tools", async () => {
-  const dbPath = fs.mkdtempSync(path.join(os.tmpdir(), "cortex-mcp-test-"));
+  const dbPath = fs.mkdtempSync(path.join(os.tmpdir(), "ax0n-mcp-test-"));
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [path.join(__dirname, "..", "out", "mcp-server.js")],
-    env: { ...process.env, CORTEX_DB_PATH: dbPath },
+    env: { ...process.env, AX0N_DB_PATH: dbPath },
   });
   const client = new Client(
-    { name: "cortex-test", version: "0.0.0" },
+    { name: "ax0n-test", version: "0.0.0" },
     { capabilities: {} }
   );
 
@@ -201,8 +201,8 @@ test("pruneStaleMemories removes old unaccessed rows", () => {
     db.saveVector(old.id, vector([1, 0]));
     const ancient = Date.now() - 40 * 24 * 60 * 60 * 1000;
     const raw = nativeBinding
-      ? new Database(path.join(dir, "cortex.db"), { nativeBinding })
-      : new Database(path.join(dir, "cortex.db"));
+      ? new Database(path.join(dir, "ax0n.db"), { nativeBinding })
+      : new Database(path.join(dir, "ax0n.db"));
     raw
       .prepare("UPDATE memories SET timestamp = ? WHERE id = ?")
       .run(ancient, old.id);
@@ -225,18 +225,18 @@ test(
   "MCP save_memory persists via saveWithDedup path",
   { timeout: 180_000 },
   async () => {
-    const dbPath = fs.mkdtempSync(path.join(os.tmpdir(), "cortex-mcp-save-"));
+    const dbPath = fs.mkdtempSync(path.join(os.tmpdir(), "ax0n-mcp-save-"));
     const transport = new StdioClientTransport({
       command: process.execPath,
       args: [path.join(__dirname, "..", "out", "mcp-server.js")],
       env: {
         ...process.env,
-        CORTEX_DB_PATH: dbPath,
-        CORTEX_TEST_EMBEDDER: "deterministic",
+        AX0N_DB_PATH: dbPath,
+        AX0N_TEST_EMBEDDER: "deterministic",
       },
     });
     const client = new Client(
-      { name: "cortex-test", version: "0.0.0" },
+      { name: "ax0n-test", version: "0.0.0" },
       { capabilities: {} }
     );
 
@@ -254,7 +254,7 @@ test(
       assert.equal(parsed.saved, true);
       assert.ok(typeof parsed.id === "string");
 
-      const db = new CortexDatabase(dbPath, nativeBinding);
+      const db = new Ax0nDatabase(dbPath, nativeBinding);
       try {
         const rows = db.getMemoriesForSidebar();
         assert.equal(rows.length, 1);
