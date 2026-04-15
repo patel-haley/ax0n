@@ -93,5 +93,7 @@ Memories are automatically pruned after 30 days if they've never been accessed.
 | Storage | [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) — local WAL-mode database |
 | MCP | [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) |
 | Language | TypeScript |
+
+
 **Fully local. No API keys. No telemetry.**
 
