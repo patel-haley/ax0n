@@ -4,7 +4,24 @@
   "displayName": "Ax0n",
   "description": "Local-first AI memory for your IDE. Automatic context injection. No re-explaining your stack.",
   "icon": "media/ax0n.jpg",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/patel-haley/ax0n.git"
+  },
+  "bugs": {
+    "url": "https://github.com/patel-haley/ax0n/issues"
+  },
+  "homepage": "https://github.com/patel-haley/ax0n#readme",
+  "keywords": [
+    "memory",
+    "mcp",
+    "embeddings",
+    "cursor",
+    "codex",
+    "local",
+    "ai"
+  ],
   "engines": {
     "vscode": "^1.88.0"
   },
@@ -98,7 +115,7 @@
     "lint": "eslint src --ext ts",
     "mcp": "node out/mcp-server.js",
     "mcp:rebuild": "npm rebuild better-sqlite3",
-    "vsix": "npm run compile && vsce package --allow-missing-repository"
+    "vsix": "npm run compile && vsce package"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
