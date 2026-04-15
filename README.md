@@ -2,7 +2,9 @@
 
 Every time you start a new AI chat, you re-explain everything. Ax0n fixes that.
 
-It runs silently in the background, captures what you work on, and automatically surfaces relevant context the next time you prompt your AI assistant with a related topic. No copy-pasting, no manual notes, no setup per project.
+Like the axons in your brain that carry signals between neurons, Ax0n carries context between your sessions. It runs silently in the background, captures what you work on, and automatically surfaces relevant context the next time you prompt your AI assistant with a related topic. No copy-pasting, no manual notes, no setup per project.
+
+**Why Ax0n:** Most AI assistants start from zero every chat. You re-explain your stack, repeat past decisions and tradeoffs, and recap work you did last week. Ax0n remembers what you've already established and surfaces it when it's relevant — so you stop paying for the same context twice. Saving time AND tokens.
 
 ---
 
@@ -27,34 +29,23 @@ Ax0n works in both Cursor (via `.cursor/rules/ax0n-memory.mdc`) and Codex (via `
 **1. Install the extension**
 
 In VS Code or Cursor, open the Extensions view and search for **Ax0n** (publisher **patel-haley**), then install.  
+
 Alternatively, download a `.vsix` from [Releases](https://github.com/patel-haley/ax0n/releases) and run **Extensions: Install from VSIX** in the Command Palette.
 
-**2. Register the MCP server**
+**2. Register the MCP server (pre-filled snippets)**
 
-Use the full path to `node` to avoid PATH issues (e.g. if you use nvm).
+Open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run the command for the client you use. Each command copies a **ready-to-paste** config that already points at **`mcp-server.js` inside your installed Ax0n extension** (and picks a sensible `node` command). Merge into existing MCP config if you already have other servers.
 
-**Cursor** — `~/.cursor/mcp.json`:
-```json
-{
-  "mcpServers": {
-    "ax0n": {
-      "command": "/path/to/node",
-      "args": ["/path/to/your-repo/out/mcp-server.js"]
-    }
-  }
-}
-```
+| Client | Command | Paste into |
+|--------|---------|------------|
+| **Cursor** | **`Ax0n: Copy Cursor MCP Config`** | `~/.cursor/mcp.json` |
+| **Codex** | **`Ax0n: Copy Codex MCP Config`** | `~/.codex/config.toml` |
 
-Run `Ax0n: Copy Cursor MCP Config` from the Command Palette to copy a pre-filled snippet with the correct `mcp-server.js` path.
+After pasting, restart Cursor or Codex. For Codex, run `codex mcp list` and use `/mcp` in the chat to confirm **`ax0n`** is listed.
 
-**Codex** — `~/.codex/config.toml`:
-```toml
-[mcp_servers.ax0n]
-command = "/path/to/node"
-args = ["/path/to/your-repo/out/mcp-server.js"]
-```
+**If the MCP server won’t start:** The copied config often uses plain `node` as the command. Cursor and Codex launch that process with a **minimal environment** (not the same as your terminal) so they sometimes **can’t find `node` on your PATH**. That’s especially common if you use **nvm**, **fnm**, or **asdf**, because those tools usually add Node only when a shell starts up.
 
-Find your node path with `which node`.
+**Fix:** In a normal terminal, run `which node` and copy the full path it prints (for example `/Users/you/.nvm/versions/node/v22.0.0/bin/node`). Edit your pasted config and replace the `command` value with that full path instead of `node`. Save, restart Cursor or Codex, and try again.
 
 **3. Optional — Ollama summarization**
 
@@ -102,5 +93,5 @@ Memories are automatically pruned after 30 days if they've never been accessed.
 | Storage | [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) — local WAL-mode database |
 | MCP | [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) |
 | Language | TypeScript |
-
 **Fully local. No API keys. No telemetry.**
+

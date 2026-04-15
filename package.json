@@ -63,6 +63,10 @@
         "title": "Ax0n: Copy Cursor MCP Config"
       },
       {
+        "command": "ax0n.copyCodexMcpConfig",
+        "title": "Ax0n: Copy Codex MCP Config"
+      },
+      {
         "command": "ax0n.showSetup",
         "title": "Ax0n: Setup"
       }

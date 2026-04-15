@@ -169,6 +169,10 @@ class SetupPanel {
           await vscode.commands.executeCommand("ax0n.copyMcpConfig");
           this._panel.webview.postMessage({ command: "configCopied" });
         }
+        if (message.command === "copyCodexMcpConfig") {
+          await vscode.commands.executeCommand("ax0n.copyCodexMcpConfig");
+          this._panel.webview.postMessage({ command: "configCopiedCodex" });
+        }
         if (message.command === "done") {
           await context.globalState.update("ax0n.setupComplete", true);
           this._panel.dispose();
@@ -232,12 +236,13 @@ class SetupPanel {
       font-size: var(--vscode-font-size);
       font-family: var(--vscode-font-family);
     }
-    #copy-btn {
+    #copy-btn, #copy-codex-btn {
       background: var(--vscode-button-background);
       color: var(--vscode-button-foreground);
     }
-    #copy-btn:hover { background: var(--vscode-button-hoverBackground); }
-    #follow-up {
+    #copy-btn:hover, #copy-codex-btn:hover { background: var(--vscode-button-hoverBackground); }
+    #copy-codex-btn { margin-top: 10px; }
+    #follow-up, #follow-up-codex {
       display: none;
       margin-top: 16px;
       padding: 12px 14px;
@@ -259,15 +264,22 @@ class SetupPanel {
 <body>
   <h1>One step to finish setup</h1>
   <p>
-    Ax0n needs to be registered as an MCP server in Cursor so it can inject
-    context into your AI chats automatically. Copy the config snippet below,
-    then paste it into <code>~/.cursor/mcp.json</code>.
+    Ax0n needs to be registered as an MCP server so it can inject context into
+    your AI chats. <strong>Cursor:</strong> copy the JSON snippet into
+    <code>~/.cursor/mcp.json</code> and restart Cursor.
+    <strong>Codex CLI / IDE:</strong> copy the TOML snippet into
+    <code>~/.codex/config.toml</code> (or merge into a project
+    <code>.codex/config.toml</code> in a trusted project), then restart Codex.
   </p>
 
-  <button id="copy-btn">Copy Cursor MCP Config</button>
+  <button id="copy-btn">Copy Cursor MCP Config (JSON)</button>
+  <button id="copy-codex-btn">Copy Codex MCP Config (TOML)</button>
 
   <div id="follow-up">
     ✓ Copied. Paste into <strong>~/.cursor/mcp.json</strong> and restart Cursor.
+  </div>
+  <div id="follow-up-codex">
+    ✓ Copied. Merge into <strong>~/.codex/config.toml</strong> and restart Codex. Run <code>codex mcp list</code> to verify.
   </div>
 
   <br />
@@ -280,6 +292,10 @@ class SetupPanel {
       vscode.postMessage({ command: 'copyMcpConfig' });
     });
 
+    document.getElementById('copy-codex-btn').addEventListener('click', () => {
+      vscode.postMessage({ command: 'copyCodexMcpConfig' });
+    });
+
     document.getElementById('done-btn').addEventListener('click', () => {
       vscode.postMessage({ command: 'done' });
     });
@@ -287,6 +303,11 @@ class SetupPanel {
     window.addEventListener('message', ({ data }) => {
       if (data.command === 'configCopied') {
         document.getElementById('follow-up').style.display = 'block';
+        document.getElementById('follow-up-codex').style.display = 'none';
+      }
+      if (data.command === 'configCopiedCodex') {
+        document.getElementById('follow-up-codex').style.display = 'block';
+        document.getElementById('follow-up').style.display = 'none';
       }
     });
   </script>
@@ -567,8 +588,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("ax0n.copyMcpConfig", async () => {
-      const serverPath = vscode.Uri.joinPath(context.extensionUri, "out", "mcp-server.js").fsPath;
-      const nodeCommand = await resolveNodeCommand();
+      const { serverPath, nodeCommand } = await getAx0nMcpPaths(context);
 
       const config = {
         mcpServers: {
@@ -599,6 +619,32 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("ax0n.copyCodexMcpConfig", async () => {
+      const { serverPath, nodeCommand } = await getAx0nMcpPaths(context);
+
+      const snippet = buildCodexMcpToml(nodeCommand, serverPath);
+
+      await vscode.env.clipboard.writeText(snippet);
+      out.appendLine(`MCP server path: ${serverPath}`);
+      out.appendLine(`Node command: ${nodeCommand}`);
+
+      const choice = await vscode.window.showInformationMessage(
+        nodeCommand === "node"
+          ? "Ax0n: Codex MCP config copied. If Codex cannot start it, replace `command` with the full path from `which node`."
+          : "Ax0n: Codex MCP config copied to clipboard.",
+        "Copied — how do I use this?",
+        "Dismiss"
+      );
+
+      if (choice === "Copied — how do I use this?") {
+        await vscode.env.openExternal(
+          vscode.Uri.parse("https://github.com/patel-haley/ax0n#setup")
+        );
+      }
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand("ax0n.showSetup", () => {
       SetupPanel.show(context);
     })
@@ -611,6 +657,30 @@ export function activate(context: vscode.ExtensionContext): void {
 }
 
 export function deactivate(): void {}
+
+async function getAx0nMcpPaths(
+  context: vscode.ExtensionContext
+): Promise<{ serverPath: string; nodeCommand: string }> {
+  const serverPath = vscode.Uri.joinPath(context.extensionUri, "out", "mcp-server.js").fsPath;
+  const nodeCommand = await resolveNodeCommand();
+  return { serverPath, nodeCommand };
+}
+
+/** Escape a string for TOML double-quoted strings. */
+function tomlDoubleQuoted(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function buildCodexMcpToml(nodeCommand: string, serverPath: string): string {
+  return (
+    `[mcp_servers.ax0n]\n` +
+    `command = ${tomlDoubleQuoted(nodeCommand)}\n` +
+    `args = [${tomlDoubleQuoted(serverPath)}]\n` +
+    `enabled = true\n` +
+    `startup_timeout_sec = 60\n` +
+    `tool_timeout_sec = 120\n`
+  );
+}
 
 function getNonce(): string {
   const chars =
