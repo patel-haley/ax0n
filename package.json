@@ -96,10 +96,12 @@
     "test": "node --test",
     "lint": "eslint src --ext ts",
     "mcp": "node out/mcp-server.js",
-    "mcp:rebuild": "npm rebuild better-sqlite3"
+    "mcp:rebuild": "npm rebuild better-sqlite3",
+    "vsix": "npm run compile && vsce package --allow-missing-repository"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.3",
+    "@vscode/vsce": "^3.8.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.x",
     "@types/vscode": "^1.88.0",
