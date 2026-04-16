@@ -4,7 +4,7 @@ Every time you start a new AI chat, you re-explain everything. Ax0n fixes that.
 
 Like the axons in your brain that carry signals between neurons, Ax0n carries context between your sessions. It runs silently in the background, captures what you work on, and automatically surfaces relevant context the next time you prompt your AI assistant with a related topic. No copy-pasting, no manual notes, no setup per project.
 
-**Why Ax0n:** Most AI assistants start from zero every chat. You re-explain your stack, repeat past decisions and tradeoffs, and recap work you did last week. Ax0n remembers what you've already established and surfaces it when it's relevant — so you stop paying for the same context twice. Saving time AND tokens.
+**Why Ax0n:** Most AI assistants start from zero every chat. You re-explain your stack, repeat past decisions and tradeoffs, and recap work you did last week. Ax0n remembers what you've already established and surfaces it when it's relevant, so you stop paying for the same context twice. Saving time AND tokens.
 
 ---
 
@@ -18,7 +18,7 @@ Like the axons in your brain that carry signals between neurons, Ax0n carries co
 
 **Automatic context injection:** The repo ships with rules that tell the AI what to do automatically. No prompt engineering required on your end.
 
-At the start of every conversation, the AI calls `search_memories` based on what you ask and anything relevant comes back as context before it responds. After every substantive response (a fix, implementation, diagnosis), it calls `save_memory` with a 2–3 sentence summary of what it did and why. Over time, context accumulates across sessions.
+At the start of every conversation, the AI calls `search_memories` based on what you ask and anything relevant comes back as context before it responds. After every substantive response (a fix, implementation, diagnosis), it calls `save_memory` with a 2-3 sentence summary of what it did and why. Over time, context accumulates across sessions.
 
 Ax0n works in both Cursor (via `.cursor/rules/ax0n-memory.mdc`) and Codex (via `AGENTS.md`). Both files ship with the repo and are already active when you clone it.
 
@@ -84,6 +84,23 @@ The **Ax0n sidebar** (activity bar icon) shows all saved memories with their sou
 Memories are automatically pruned after 30 days if they've never been accessed.
 
 ---
+## Architecture
+
+Ax0n implements a RAG (Retrieval-Augmented Generation) pipeline entirely locally. No cloud, no API keys, no data leaving your machine.
+
+**Embeddings.** Every capture is converted into a 384-dimensional float vector using `all-MiniLM-L6-v2`, a sentence embedding model that runs entirely in-process via `@xenova/transformers`. The model downloads once (~23MB) and runs offline on CPU, there are no network calls. Similar meaning produces similar vectors, which, for example, is what makes "auth bug" retrieve a memory about "login issue" even though the two phrases share no words.
+
+**Semantic search.** At query time Ax0n embeds the query using the same model and computes cosine similarity against every stored vector, implemented from scratch, no libraries. Results below a 0.4 threshold are discarded. Cosine similarity measures the angle between two vectors rather than straight-line distance, making it robust to magnitude differences and the standard approach for semantic retrieval.
+
+**Importance scoring.** Raw similarity alone doesn't rank results well. Ax0n re-ranks candidates using a weighted formula that combines four signals:
+```
+    finalScore = relevance × 0.4 + recency × 0.3 + frequency × 0.2 + proximity × 0.1
+```
+Recency uses exponential decay with a 10-day half-life so recent memories naturally surface over stale ones. Frequency normalises access count against the most-accessed memory in the database. Proximity scores 1.0 for the same file, 0.5 for the same file extension, 0 otherwise.
+
+**Deduplication.** Before every save, Ax0n embeds the new content and compares it against all stored vectors. Anything scoring above 0.92 cosine similarity updates the existing memory rather than creating a duplicate, which keeping the database clean without discarding meaningfully different captures.
+
+**Memory decay.** Two mechanisms handle forgetting. Hard pruning deletes memories with zero accesses older than 30 days on activation. Soft decay operates through the recency component of the importance scorer, thus older memories rank progressively lower even when they survive pruning. Accessed memories are never deleted.
 
 ## Built with
 
@@ -94,6 +111,4 @@ Memories are automatically pruned after 30 days if they've never been accessed.
 | MCP | [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) |
 | Language | TypeScript |
 
-
-**Fully local. No API keys. No telemetry.**
 
