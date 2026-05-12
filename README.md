@@ -30,7 +30,7 @@ Ax0n works in both Cursor (via `.cursor/rules/ax0n-memory.mdc`) and Codex (via `
 
 In VS Code or Cursor, open the Extensions view and search for **Ax0n** (publisher **patel-haley**), then install.  
 
-Alternatively, download a `.vsix` from [Releases](https://github.com/patel-haley/ax0n/releases) and run **Extensions: Install from VSIX** in the Command Palette.
+Alternatively, download a `.vsix` from [Releases](https://github.com/patel-haley/ax0n/releases) and run **Extensions: Install from VSIX** in the Command Palette. (Unavailable on Cursor IDE)
 
 **2. Register the MCP server (pre-filled snippets)**
 
